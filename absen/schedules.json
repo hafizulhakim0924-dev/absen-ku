@@ -1,0 +1,83 @@
+{
+    "SD": {
+        "name": "Sekolah Dasar",
+        "clock_in": "07:30",
+        "clock_out": "14:00",
+        "late_limit": 15,
+        "working_days": [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday"
+        ]
+    },
+    "SMP": {
+        "name": "Sekolah Menengah Pertama",
+        "clock_in": "07:00",
+        "clock_out": "15:00",
+        "late_limit": 15,
+        "working_days": [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday"
+        ]
+    },
+    "YYS": {
+        "name": "Yayasan",
+        "clock_in": "07:30",
+        "clock_out": "16:00",
+        "late_limit": 30,
+        "working_days": [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday"
+        ]
+    },
+    "TK": {
+        "name": "Taman Kanak-kanak",
+        "clock_in": "07:30",
+        "clock_out": "12:00",
+        "late_limit": 15,
+        "working_days": [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday"
+        ]
+    },
+    "TAAM": {
+        "name": "TAAM",
+        "clock_in": "08:00",
+        "clock_out": "15:00",
+        "late_limit": 20,
+        "working_days": [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday"
+        ]
+    },
+    "TAUD": {
+        "name": "TAUD",
+        "clock_in": "08:00",
+        "clock_out": "14:00",
+        "late_limit": 20,
+        "working_days": [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday"
+        ]
+    }
+}

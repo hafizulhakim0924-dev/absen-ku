@@ -1,0 +1,30 @@
+{
+    "name": "attendance-system/penalty-calculator",
+    "description": "Sistem Absensi dengan Perhitungan Denda Otomatis",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Developer",
+            "email": "dev@company.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "phpoffice/phpspreadsheet": "^1.29"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "AttendanceSystem\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
