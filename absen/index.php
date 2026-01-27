@@ -362,7 +362,7 @@ if ($config) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Absensi Karyawan - Multi Mesin 2025</title>
+    <title>Sistem Absensi Karyawan - Multi Mesin Terbaru</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
@@ -618,7 +618,20 @@ if ($config) {
         
         <div id="mainContent" style="display:none;">
             <div>
-                <h3>Pilih Bulan untuk Data Absensi</h3>
+                <h3>Pilih Bulan dan Tahun untuk Data Absensi</h3>
+                <div style="margin-bottom: 15px;">
+                    <label for="yearSelect" style="font-weight: bold; margin-right: 10px;">Pilih Tahun:</label>
+                    <select id="yearSelect" style="padding: 8px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; min-width: 120px;">
+                        <?php 
+                        $currentYear = date('Y');
+                        // Rentang tahun dari 2020 sampai 2030 untuk mencegah miss data
+                        for ($y = 2020; $y <= 2030; $y++) {
+                            $selected = ($y == $currentYear) ? ' selected' : '';
+                            echo "<option value=\"$y\"$selected>$y</option>";
+                        }
+                        ?>
+                    </select>
+                </div>
                 <div class="month-buttons">
                     <button data-month="1">Januari</button>
                     <button data-month="2">Februari</button>
@@ -634,7 +647,7 @@ if ($config) {
                     <button data-month="12">Desember</button>
                 </div>
                 <div id="selectedMonthInfo" style="display:none;">
-                    <strong>Bulan Terpilih: <span id="monthName">-</span> <span id="monthYear">2025</span></strong>
+                    <strong>Bulan Terpilih: <span id="monthName">-</span> <span id="monthYear"><?php echo date('Y'); ?></span></strong>
                 </div>
             </div>
             
@@ -878,7 +891,7 @@ if ($config) {
 
         let filesData = {A: null, B: null, C: null, D: null};
         let selectedMonth = null;
-        let selectedYear = 2025;
+        let selectedYear = new Date().getFullYear();
         
         const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
         const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -899,6 +912,9 @@ if ($config) {
         }
         
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize year selector to current year
+            selectedYear = new Date().getFullYear();
+            document.getElementById('yearSelect').value = selectedYear;
             loadConfig();
             setupEventListeners();
         });
@@ -908,14 +924,36 @@ if ($config) {
         }
 
         function setupEventListeners() {
+            // Year selection listener
+            document.getElementById('yearSelect').addEventListener('change', function() {
+                if (!checkConfigRequired()) return;
+                selectedYear = parseInt(this.value);
+                updateMonthYearDisplay();
+                // Reset month selection when year changes
+                if (selectedMonth) {
+                    document.querySelectorAll('button[data-month]').forEach(b => b.classList.remove('active'));
+                    selectedMonth = null;
+                    document.getElementById('selectedMonthInfo').style.display = 'none';
+                    document.getElementById('warningMessage').style.display = 'block';
+                    document.getElementById('fileSection').style.display = 'none';
+                    // Clear file selections
+                    ['A', 'B', 'C', 'D'].forEach(machine => {
+                        document.getElementById(`fileInput${machine}`).value = '';
+                        document.getElementById(`status${machine}`).textContent = 'Belum ada file';
+                        document.getElementById(`button${machine}`).style.background = '';
+                        filesData[machine] = null;
+                    });
+                    updateProcessButton();
+                }
+            });
+            
             document.querySelectorAll('button[data-month]').forEach(button => {
                 button.addEventListener('click', function() {
                     if (!checkConfigRequired()) return;
                     document.querySelectorAll('button[data-month]').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
                     selectedMonth = parseInt(this.getAttribute('data-month'));
-                    document.getElementById('monthName').textContent = monthNames[selectedMonth];
-                    document.getElementById('selectedMonthInfo').style.display = 'block';
+                    updateMonthYearDisplay();
                     enableFileSection();
                     document.getElementById('warningMessage').style.display = 'none';
                 });
@@ -932,6 +970,13 @@ if ($config) {
             document.getElementById('penaltyFilter').addEventListener('change', applyFilters);
         }
 
+        function updateMonthYearDisplay() {
+            if (selectedMonth) {
+                document.getElementById('monthName').textContent = monthNames[selectedMonth];
+                document.getElementById('monthYear').textContent = selectedYear;
+            }
+        }
+        
         function checkConfigRequired() {
             if (!configLoaded || !config) {
                 alert('Konfigurasi sistem belum dimuat. Hubungi administrator.');
@@ -1064,7 +1109,7 @@ if ($config) {
                     }
 
                     selectedMonth = loadedData.month;
-                    selectedYear = loadedData.year;
+                    selectedYear = loadedData.year || new Date().getFullYear();
                     processedData = loadedData.processedData;
                     permitData = loadedData.permitData || {};
                     originalEmployeesArray = loadedData.originalEmployeesArray || [];
@@ -1073,7 +1118,9 @@ if ($config) {
                     const monthButton = document.querySelector(`button[data-month="${selectedMonth}"]`);
                     if (monthButton) monthButton.classList.add('active');
                     
+                    document.getElementById('yearSelect').value = selectedYear;
                     document.getElementById('monthName').textContent = monthNames[selectedMonth];
+                    document.getElementById('monthYear').textContent = selectedYear;
                     document.getElementById('selectedMonthInfo').style.display = 'block';
 
                     setupFilterOptions(processedData);
