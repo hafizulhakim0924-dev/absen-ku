@@ -609,7 +609,7 @@ if ($config) {
     <!-- SPA Content Areas -->
     <div id="spa-content-home" class="spa-content active">
         <div class="container">
-            <h1>Sistem Absensi Karyawan - Multi Mesin 2025 (Server Version)</h1>
+            <h1>Sistem Absensi Karyawan - terbaru(Server Version)</h1>
         
         <div id="configStatus" class="alert alert-warning">
             <h3>Memuat konfigurasi sistem...</h3>
