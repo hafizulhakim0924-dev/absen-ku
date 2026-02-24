@@ -148,11 +148,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!isset($config['holidays'][$year])) {
                         $config['holidays'][$year] = [];
                     }
+                    $divisions = isset($_POST['holiday_divisions']) && is_array($_POST['holiday_divisions'])
+                        ? array_values($_POST['holiday_divisions'])
+                        : [];
+                    if (in_array('all', $divisions) || empty($divisions)) {
+                        $divisions = [];
+                    }
                     $config['holidays'][$year][] = [
                         'date' => $_POST['holiday_date'],
                         'name' => $_POST['holiday_name'],
                         'type' => $_POST['holiday_type'],
-                        'description' => $_POST['holiday_description'] ?? ''
+                        'description' => $_POST['holiday_description'] ?? '',
+                        'divisions' => $divisions
                     ];
                     usort($config['holidays'][$year], function($a, $b) {
                         return strtotime($a['date']) - strtotime($b['date']);
@@ -326,6 +333,7 @@ if ($config) {
                             'name' => $holiday['name'] ?? '',
                             'type' => $holiday['type'] ?? 'national',
                             'description' => $holiday['description'] ?? '',
+                            'divisions' => $holiday['divisions'] ?? [],
                             'year' => $year,
                             'index' => $index
                         ];
@@ -1203,11 +1211,16 @@ if ($config) {
             return allHolidays;
         }
 
-        function isHoliday(date, month, year) {
+        function isHoliday(date, month, year, divisionKey) {
             const dateStr = `${year}-${month.toString().padStart(2, '0')}-${date.toString().padStart(2, '0')}`;
             const holidays = getAllHolidays();
             for (const holiday of holidays) {
-                if (holiday.date === dateStr) return holiday;
+                if (holiday.date !== dateStr) continue;
+                // Divisi terdampak: kosong/undefined = semua divisi; otherwise hanya jika divisi ada di list
+                const divs = holiday.divisions;
+                if (!divs || divs.length === 0 || divs.includes('all')) return holiday;
+                if (divisionKey && divs.includes(divisionKey)) return holiday;
+                if (!divisionKey) return holiday; // backward: tidak pass divisi = tetap libur (semua)
             }
             return null;
         }
@@ -1221,10 +1234,10 @@ if ($config) {
             return null;
         }
 
-        function isWorkingDay(date, month, year) {
+        function isWorkingDay(date, month, year, divisionKey) {
             const dateObj = new Date(year, month - 1, date);
             const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
-            const holiday = isHoliday(date, month, year);
+            const holiday = isHoliday(date, month, year, divisionKey);
             return !isWeekend && !holiday;
         }
 
@@ -1499,7 +1512,7 @@ if ($config) {
                             if (timeValue.match(/\d{1,2}[:.]\d{2}/) || timeValue.match(/\d{3,}/)) {
                                 const tanggal = getDateFromColumnIndex(colIndex);
                                 const columnLetter = getColumnLetter(colIndex);
-                                const dayInfo = getDayInfo(tanggal, selectedMonth, selectedYear);
+                                const dayInfo = getDayInfo(tanggal, selectedMonth, selectedYear, employeeData[id].divisi);
                                 if (dayInfo.fullDate.getMonth() !== selectedMonth - 1) continue;
                                 
                                 if (!employeeData[id].attendanceByDate[tanggal]) {
@@ -2014,7 +2027,7 @@ function populateBulkDivisionOptions() {
                     for (let date = 1; date <= new Date(selectedYear, selectedMonth, 0).getDate(); date++) {
                         const permitKey = `${id}-${date}`;
                         if (permitData[permitKey] && permitData[permitKey].type === 'full') {
-                            const dayInfo = getDayInfo(date, selectedMonth, selectedYear);
+                            const dayInfo = getDayInfo(date, selectedMonth, selectedYear, getDivisionById(id));
                             if (dayInfo.isWorkingDay && !attendanceByDate[date]) {
                                 permitDays.push({ date, reason: permitData[permitKey].reason, type: permitData[permitKey].type });
                             }
@@ -2111,11 +2124,11 @@ function populateBulkDivisionOptions() {
             return result;
         }
         
-        function getDayInfo(tanggal, month, year) {
+        function getDayInfo(tanggal, month, year, divisionKey) {
             const date = new Date(year, month - 1, tanggal);
             const dayName = dayNames[date.getDay()];
             const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-            const holiday = isHoliday(tanggal, month, year);
+            const holiday = isHoliday(tanggal, month, year, divisionKey);
             const specialEvent = getSpecialEvent(tanggal, month, year);
             return {
                 dayName: dayName,
@@ -2123,7 +2136,7 @@ function populateBulkDivisionOptions() {
                 fullDate: date,
                 holiday: holiday,
                 specialEvent: specialEvent,
-                isWorkingDay: isWorkingDay(tanggal, month, year)
+                isWorkingDay: isWorkingDay(tanggal, month, year, divisionKey)
             };
         }
         
@@ -2398,7 +2411,7 @@ function splitCombinedTimes(timeStr) {
             const absentWorkingDays = [];
             
             for (let date = 1; date <= daysInMonth; date++) {
-                const dayInfo = getDayInfo(date, month, year);
+                const dayInfo = getDayInfo(date, month, year, divisionKey);
                 if (dayInfo.isWorkingDay) {
                     const fullDayPermit = getPermitForEmployee(employeeId, date, 'full');
                     if (fullDayPermit && fullDayPermit.type === 'full') {
@@ -2479,7 +2492,7 @@ function exportToExcel(type) {
             const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
             
             for (let date = 1; date <= daysInMonth; date++) {
-                const dayInfo = getDayInfo(date, selectedMonth, selectedYear);
+                const dayInfo = getDayInfo(date, selectedMonth, selectedYear, employee.divisi);
                 const dayAttendance = attendanceByDate[date] || [];
                 let jamDatang = '';
                 let jamPulang = '';
@@ -2586,7 +2599,7 @@ function exportToExcel(type) {
             
             Object.keys(attendanceByDate).forEach(tanggal => {
                 const categorizedEntries = categorizeAttendanceEntries(attendanceByDate[tanggal], employee.divisi, parseInt(tanggal), selectedMonth, selectedYear, id);
-                const dayInfo = getDayInfo(parseInt(tanggal), selectedMonth, selectedYear);
+                const dayInfo = getDayInfo(parseInt(tanggal), selectedMonth, selectedYear, employee.divisi);
                 const hasIncompleteAttendancePenalty = checkDayIncompleteAttendance(categorizedEntries, dayInfo.isWorkingDay, id, parseInt(tanggal));
                 
                 categorizedEntries.forEach(entry => {
@@ -2617,7 +2630,7 @@ function exportToExcel(type) {
             let dendaTidakHadirSamaSekali = 0;
 
             for (let date = 1; date <= daysInMonth; date++) {
-                const dayInfo = getDayInfo(date, selectedMonth, selectedYear);
+                const dayInfo = getDayInfo(date, selectedMonth, selectedYear, employee.divisi);
                 if (dayInfo.isWorkingDay) {
                     const fullPermit = getPermitForEmployee(id, date, 'full');
                     if (!fullPermit) {

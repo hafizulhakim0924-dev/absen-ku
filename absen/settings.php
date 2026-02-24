@@ -66,12 +66,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!isset($config['holidays'][$year])) {
                 $config['holidays'][$year] = [];
             }
-            
+            // Divisi terdampak: kosong atau 'all' = semua divisi; otherwise hanya divisi terpilih
+            $divisions = isset($_POST['holiday_divisions']) && is_array($_POST['holiday_divisions'])
+                ? array_values($_POST['holiday_divisions'])
+                : [];
+            if (in_array('all', $divisions) || empty($divisions)) {
+                $divisions = [];
+            }
             $config['holidays'][$year][] = [
                 'date' => $_POST['holiday_date'],
                 'name' => $_POST['holiday_name'],
                 'type' => $_POST['holiday_type'],
-                'description' => $_POST['holiday_description'] ?? ''
+                'description' => $_POST['holiday_description'] ?? '',
+                'divisions' => $divisions
             ];
             
             usort($config['holidays'][$year], function($a, $b) {
@@ -230,6 +237,7 @@ if (!empty($config['holidays'])) {
                         'name' => $holiday['name'] ?? '',
                         'type' => $holiday['type'] ?? 'national',
                         'description' => $holiday['description'] ?? '',
+                        'divisions' => $holiday['divisions'] ?? [],
                         'year' => $year,
                         'index' => $index
                     ];
@@ -861,6 +869,20 @@ if (is_array($specialSchedules) && !empty($specialSchedules)) {
                                     <input type="text" name="holiday_description" placeholder="Keterangan tambahan">
                                 </div>
                             </div>
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label>Divisi terdampak:</label>
+                                    <select name="holiday_divisions[]" multiple style="min-height: 100px;">
+                                        <option value="all">👥 Semua Divisi</option>
+                                        <?php if (!empty($config['division_schedules'])): ?>
+                                            <?php foreach ($config['division_schedules'] as $divKey => $div): ?>
+                                                <option value="<?php echo htmlspecialchars($divKey); ?>"><?php echo htmlspecialchars($div['name'] ?? $divKey); ?> (<?php echo htmlspecialchars($divKey); ?>)</option>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </select>
+                                    <small style="color: #666;">Kosongkan atau pilih "Semua Divisi" = libur untuk semua. Pilih satu/beberapa divisi = libur hanya untuk divisi tersebut.</small>
+                                </div>
+                            </div>
                             <button type="submit" class="btn">➕ Tambah Hari Libur</button>
                         </form>
                     </div>
@@ -876,6 +898,7 @@ if (is_array($specialSchedules) && !empty($specialSchedules)) {
                                         <th style="width: 80px;">Hari</th>
                                         <th>Nama Hari Libur</th>
                                         <th style="width: 120px;">Tipe</th>
+                                        <th style="width: 180px;">Divisi Terdampak</th>
                                         <th>Deskripsi</th>
                                         <th style="width: 100px;">Aksi</th>
                                     </tr>
@@ -894,6 +917,20 @@ if (is_array($specialSchedules) && !empty($specialSchedules)) {
                                                 <span class="holiday-type <?php echo $holiday['type']; ?>">
                                                     <?php echo $holiday['type'] === 'national' ? '🇮🇩 Nasional' : '🕌 Keagamaan'; ?>
                                                 </span>
+                                            </td>
+                                            <td>
+                                                <?php
+                                                $divs = $holiday['divisions'] ?? [];
+                                                if (empty($divs)) {
+                                                    echo 'Semua divisi';
+                                                } else {
+                                                    $names = [];
+                                                    foreach ($divs as $dk) {
+                                                        $names[] = isset($config['division_schedules'][$dk]) ? ($config['division_schedules'][$dk]['name'] ?? $dk) : $dk;
+                                                    }
+                                                    echo htmlspecialchars(implode(', ', $names));
+                                                }
+                                                ?>
                                             </td>
                                             <td><?php echo htmlspecialchars($holiday['description'] ?: '-'); ?></td>
                                             <td>
