@@ -19,6 +19,7 @@ if (!empty($config['holidays'])) {
                         'name' => $holiday['name'] ?? '',
                         'type' => $holiday['type'] ?? 'national',
                         'description' => $holiday['description'] ?? '',
+                        'divisions' => $holiday['divisions'] ?? [],
                         'year' => $year,
                         'index' => $index
                     ];

@@ -2729,16 +2729,18 @@ function exportToExcel(type) {
             window.history.pushState({tab: tabName}, '', newUrl);
         }
         
-        // Initialize tab from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const initialTab = urlParams.get('tab') || 'home';
-        if (initialTab !== 'home') {
-            setTimeout(() => {
-                showSPATab(initialTab);
-            }, 100);
+        // Initialize tab from URL after DOM is ready (spa-content-* divs are below this script)
+        function initTabFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialTab = urlParams.get('tab') || 'home';
+            const validTabs = ['home', 'edit', 'settings', 'izin', 'work_schedule'];
+            const tab = validTabs.includes(initialTab) ? initialTab : 'home';
+            showSPATab(tab);
+        }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initTabFromUrl);
         } else {
-            // Ensure home tab is active on initial load
-            showSPATab('home');
+            setTimeout(initTabFromUrl, 0);
         }
         
         // Handle browser back/forward
