@@ -418,7 +418,8 @@ if ($config) {
             display: none;
             animation: fadeIn 0.3s;
             width: 100%;
-            min-height: calc(100vh - 60px);
+            min-height: calc(100vh - 70px);
+            background: #f5f5f5;
         }
         .spa-content.active {
             display: block !important;
@@ -429,8 +430,9 @@ if ($config) {
         }
         .spa-iframe {
             width: 100%;
+            height: calc(100vh - 70px);
+            min-height: 500px;
             border: none;
-            min-height: calc(100vh - 60px);
             background: white;
             display: block;
         }
@@ -614,7 +616,26 @@ if ($config) {
         </ul>
     </nav>
     
-    <!-- SPA Content Areas -->
+    <!-- SPA Content Areas (non-home panels first so they sit right under nav when active) -->
+    <div id="spa-content-edit" class="spa-content" style="display: none;">
+        <iframe class="spa-iframe" src="edit.php" id="iframe-edit" title="Edit Data"></iframe>
+    </div>
+    <div id="spa-content-settings" class="spa-content" style="display: none;">
+        <?php
+        if ($config) {
+            include __DIR__ . '/settings_content.php';
+        } else {
+            echo '<div style="padding: 20px; text-align: center; background: white; margin: 20px; border-radius: 8px;">Error: Config tidak ditemukan</div>';
+        }
+        ?>
+    </div>
+    <div id="spa-content-izin" class="spa-content" style="display: none;">
+        <iframe class="spa-iframe" src="izin.php" id="iframe-izin" title="Izin & Cuti"></iframe>
+    </div>
+    <div id="spa-content-work_schedule" class="spa-content" style="display: none;">
+        <iframe class="spa-iframe" src="work_schedule.php" id="iframe-work_schedule" title="Jadwal Kerja"></iframe>
+    </div>
+    
     <div id="spa-content-home" class="spa-content active">
         <div class="container">
             <h1>Sistem Absensi Karyawan - terbaru(Server Version)</h1>
@@ -2750,29 +2771,5 @@ function exportToExcel(type) {
             showSPATab(tab);
         });
     </script>
-    
-    <!-- Other SPA Content Areas -->
-    <div id="spa-content-edit" class="spa-content" style="display: none;">
-        <iframe class="spa-iframe" src="edit.php" id="iframe-edit"></iframe>
-    </div>
-    
-    <div id="spa-content-settings" class="spa-content" style="display: none;">
-        <?php
-        // Include settings content
-        if ($config) {
-            include __DIR__ . '/settings_content.php';
-        } else {
-            echo '<div style="padding: 20px; text-align: center; background: white; margin: 20px; border-radius: 8px;">Error: Config tidak ditemukan</div>';
-        }
-        ?>
-    </div>
-    
-    <div id="spa-content-izin" class="spa-content" style="display: none;">
-        <iframe class="spa-iframe" src="izin.php" id="iframe-izin"></iframe>
-    </div>
-    
-    <div id="spa-content-work_schedule" class="spa-content" style="display: none;">
-        <iframe class="spa-iframe" src="work_schedule.php" id="iframe-work_schedule"></iframe>
-    </div>
 </body>
 </html>
