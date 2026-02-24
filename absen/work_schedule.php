@@ -11,6 +11,8 @@ $default_schedules = [
         'name' => 'Sekolah Dasar',
         'clock_in' => '07:30',
         'clock_out' => '14:00',
+        'friday_clock_in' => '07:30',
+        'friday_clock_out' => '11:30',
         'late_limit' => 15, // minutes
         'working_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
     ],
@@ -18,6 +20,8 @@ $default_schedules = [
         'name' => 'Sekolah Menengah Pertama',
         'clock_in' => '07:00',
         'clock_out' => '15:00',
+        'friday_clock_in' => '07:00',
+        'friday_clock_out' => '11:30',
         'late_limit' => 15,
         'working_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
     ],
@@ -25,6 +29,8 @@ $default_schedules = [
         'name' => 'Yayasan',
         'clock_in' => '08:00',
         'clock_out' => '16:00',
+        'friday_clock_in' => '08:00',
+        'friday_clock_out' => '11:30',
         'late_limit' => 30,
         'working_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
     ],
@@ -32,6 +38,8 @@ $default_schedules = [
         'name' => 'Taman Kanak-kanak',
         'clock_in' => '07:30',
         'clock_out' => '12:00',
+        'friday_clock_in' => '07:30',
+        'friday_clock_out' => '11:00',
         'late_limit' => 15,
         'working_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
     ],
@@ -39,6 +47,8 @@ $default_schedules = [
         'name' => 'TAAM',
         'clock_in' => '08:00',
         'clock_out' => '15:00',
+        'friday_clock_in' => '08:00',
+        'friday_clock_out' => '11:30',
         'late_limit' => 20,
         'working_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
     ],
@@ -46,6 +56,8 @@ $default_schedules = [
         'name' => 'TAUD',
         'clock_in' => '08:00',
         'clock_out' => '14:00',
+        'friday_clock_in' => '08:00',
+        'friday_clock_out' => '11:30',
         'late_limit' => 20,
         'working_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
     ]
@@ -63,8 +75,18 @@ function loadSchedules() {
             return $default_schedules;
         }
         
-        // Merge with defaults to ensure all divisions exist
-        return array_merge($default_schedules, $schedules);
+        // Merge with defaults to ensure all divisions exist and have friday fields
+        $merged = [];
+        foreach ($default_schedules as $key => $default) {
+            $merged[$key] = array_merge($default, $schedules[$key] ?? []);
+            if (empty($merged[$key]['friday_clock_in'])) {
+                $merged[$key]['friday_clock_in'] = $merged[$key]['clock_in'];
+            }
+            if (empty($merged[$key]['friday_clock_out'])) {
+                $merged[$key]['friday_clock_out'] = $merged[$key]['clock_out'];
+            }
+        }
+        return $merged;
     }
     
     return $default_schedules;
@@ -89,6 +111,9 @@ if ($_POST) {
             $schedules[$division]['clock_out'] = $_POST['clock_out'];
             $schedules[$division]['late_limit'] = (int)$_POST['late_limit'];
             $schedules[$division]['working_days'] = isset($_POST['working_days']) ? $_POST['working_days'] : [];
+            // Jadwal khusus Jumat per divisi
+            $schedules[$division]['friday_clock_in'] = $_POST['friday_clock_in'] ?? $schedules[$division]['clock_in'];
+            $schedules[$division]['friday_clock_out'] = $_POST['friday_clock_out'] ?? $schedules[$division]['clock_out'];
             
             saveSchedules($schedules);
             $message = "Jadwal untuk divisi {$schedules[$division]['name']} berhasil diperbarui!";
@@ -281,8 +306,14 @@ $days_of_week = [
                     <div class="current-schedule">
                         <strong>Jadwal Saat Ini:</strong>
                         <div class="schedule-info">
-                            <div><strong>Masuk:</strong> <?php echo $schedule['clock_in']; ?></div>
-                            <div><strong>Keluar:</strong> <?php echo $schedule['clock_out']; ?></div>
+                            <div><strong>Masuk (Senin–Kamis):</strong> <?php echo $schedule['clock_in']; ?></div>
+                            <div><strong>Keluar (Senin–Kamis):</strong> <?php echo $schedule['clock_out']; ?></div>
+                            <?php
+                            $friIn = $schedule['friday_clock_in'] ?? $schedule['clock_in'];
+                            $friOut = $schedule['friday_clock_out'] ?? $schedule['clock_out'];
+                            ?>
+                            <div><strong>Jumat Masuk:</strong> <?php echo $friIn; ?></div>
+                            <div><strong>Jumat Keluar:</strong> <?php echo $friOut; ?></div>
                             <div><strong>Batas Terlambat:</strong> <?php echo $schedule['late_limit']; ?> menit</div>
                             <div class="working-days-display">
                                 <strong>Hari Kerja:</strong> 
@@ -315,6 +346,20 @@ $days_of_week = [
                             <input type="number" name="late_limit" value="<?php echo $schedule['late_limit']; ?>" min="0" max="120" required>
                         </div>
                         
+                        <div class="form-group friday-schedule" style="margin-top:12px; padding:10px; background:#f0f7ff; border:1px solid #b8d4e8; border-radius:6px;">
+                            <label style="display:block; margin-bottom:8px;">🕐 Jadwal Khusus Jumat (masing-masing divisi bisa berbeda):</label>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                <div>
+                                    <label style="font-size:12px;">Jumat Masuk</label>
+                                    <input type="time" name="friday_clock_in" value="<?php echo htmlspecialchars($schedule['friday_clock_in'] ?? $schedule['clock_in']); ?>">
+                                </div>
+                                <div>
+                                    <label style="font-size:12px;">Jumat Keluar</label>
+                                    <input type="time" name="friday_clock_out" value="<?php echo htmlspecialchars($schedule['friday_clock_out'] ?? $schedule['clock_out']); ?>">
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="working-days">
                             <label><strong>Hari Kerja:</strong></label>
                             <div class="days-grid">
@@ -345,7 +390,8 @@ $days_of_week = [
         <div style="margin-top: 30px; padding: 15px; background: #f8f9fa; border: 1px solid #dee2e6;">
             <h4>Keterangan:</h4>
             <ul style="margin: 10px 0;">
-                <li><strong>Jam Masuk/Keluar:</strong> Waktu standar kerja untuk divisi</li>
+                <li><strong>Jam Masuk/Keluar:</strong> Waktu standar kerja (Senin–Kamis) untuk divisi</li>
+                <li><strong>Jadwal Khusus Jumat:</strong> Masing-masing divisi bisa atur jam masuk & keluar Jumat berbeda (misal Jumat pulang lebih awal)</li>
                 <li><strong>Batas Keterlambatan:</strong> Maksimal menit terlambat yang masih diterima</li>
                 <li><strong>Hari Kerja:</strong> Hari-hari aktif kerja (tidak termasuk libur nasional)</li>
                 <li>Data disimpan dalam file <code>schedules.json</code></li>
