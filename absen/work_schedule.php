@@ -136,6 +136,68 @@ $days_of_week = [
     'saturday' => 'Sabtu',
     'sunday' => 'Minggu'
 ];
+
+$month_names = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+$current_year = (int) date('Y');
+$current_month = (int) date('n');
+$first_day = sprintf('%04d-%02d-01', $current_year, $current_month);
+$last_day = date('Y-m-t', strtotime($first_day));
+
+// Libur bulan ini (dari config.json)
+$holidays_this_month = [];
+$config_file = __DIR__ . '/config.json';
+if (file_exists($config_file)) {
+    $config = json_decode(file_get_contents($config_file), true);
+    if (!empty($config['holidays'][$current_year])) {
+        foreach ($config['holidays'][$current_year] as $idx => $h) {
+            if (empty($h['date'])) continue;
+            $d = $h['date'];
+            if ($d >= $first_day && $d <= $last_day) {
+                $divs = $h['divisions'] ?? [];
+                $div_labels = [];
+                if (empty($divs)) {
+                    $div_labels[] = 'Semua divisi';
+                } else {
+                    foreach ($divs as $dk) {
+                        $div_labels[] = isset($config['division_schedules'][$dk]['name']) ? $config['division_schedules'][$dk]['name'] : $dk;
+                    }
+                }
+                $holidays_this_month[] = [
+                    'date' => $h['date'],
+                    'name' => $h['name'] ?? '',
+                    'type' => $h['type'] ?? 'national',
+                    'description' => $h['description'] ?? '',
+                    'divisions_label' => implode(', ', $div_labels),
+                ];
+            }
+        }
+        usort($holidays_this_month, function ($a, $b) { return strcmp($a['date'], $b['date']); });
+    }
+}
+
+// Izin/Cuti bulan ini (dari izin.json) — yang overlap dengan bulan berjalan
+$izin_this_month = [];
+$izin_file = __DIR__ . '/izin.json';
+if (file_exists($izin_file)) {
+    $izin_data = json_decode(file_get_contents($izin_file), true);
+    $list = $izin_data['izin_list'] ?? [];
+    foreach ($list as $izin) {
+        $start = $izin['start_date'] ?? '';
+        $end = $izin['end_date'] ?? '';
+        if ($start === '' || $end === '') continue;
+        if ($end >= $first_day && $start <= $last_day) {
+            $izin_this_month[] = [
+                'employee_id' => $izin['employee_id'] ?? '',
+                'employee_name' => $izin['employee_name'] ?? '',
+                'start_date' => $start,
+                'end_date' => $end,
+                'reason' => $izin['reason'] ?? '',
+                'description' => $izin['description'] ?? '',
+            ];
+        }
+    }
+    usort($izin_this_month, function ($a, $b) { return strcmp($a['start_date'], $b['start_date']); });
+}
 ?>
 
 <!DOCTYPE html>
@@ -172,9 +234,30 @@ $days_of_week = [
         .working-days-display { grid-column: span 2; }
         .friday-schedule { margin-top: 8px; padding: 8px; background: #eff6ff; border: 1px solid var(--primary); border-radius: 4px; }
         .friday-schedule label { font-size: 11px; color: var(--primary); font-weight: 600; }
+        /* Popup Libur & Izin */
+        .libur-izin-trigger { position: fixed; bottom: 16px; right: 16px; z-index: 999; background: var(--primary); color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+        .libur-izin-trigger:hover { background: var(--primary-hover); }
+        #liburIzinPopup { position: fixed; right: 16px; bottom: 52px; width: 380px; max-width: calc(100vw - 32px); max-height: 70vh; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column; transition: height 0.2s, width 0.2s; }
+        #liburIzinPopup.minimized { width: 280px; height: 44px; max-height: 44px; overflow: hidden; bottom: 52px; }
+        #liburIzinPopup.minimized .libur-izin-popup-body { display: none; }
+        #liburIzinPopup .libur-izin-popup-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--primary); color: white; border-radius: 8px 8px 0 0; font-size: 12px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+        #liburIzinPopup.minimized .libur-izin-popup-header { border-radius: 8px; }
+        #liburIzinPopup .libur-izin-popup-header .popup-actions { display: flex; gap: 6px; align-items: center; }
+        #liburIzinPopup .libur-izin-popup-header button { background: rgba(255,255,255,0.25); border: none; color: white; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; font-size: 14px; line-height: 1; }
+        #liburIzinPopup .libur-izin-popup-header button:hover { background: rgba(255,255,255,0.4); }
+        .libur-izin-popup-body { padding: 10px 12px; overflow-y: auto; flex: 1; min-height: 0; font-size: 11px; }
+        .libur-izin-section { margin-bottom: 12px; }
+        .libur-izin-section h4 { margin: 0 0 6px 0; font-size: 11px; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+        .libur-izin-section table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .libur-izin-section th, .libur-izin-section td { padding: 4px 6px; text-align: left; border: 1px solid var(--border); }
+        .libur-izin-section th { background: #f1f5f9; font-weight: 600; }
+        .libur-izin-section .empty-msg { color: var(--text-muted); font-style: italic; padding: 6px 0; }
+        .libur-izin-footer { padding: 6px 12px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
     </style>
 </head>
 <body>
+    <button type="button" class="libur-izin-trigger" id="liburIzinTrigger" onclick="toggleLiburIzinPopup()" title="Daftar libur & izin bulan ini">📅 Libur & Izin Bulan Ini</button>
+
     <div class="container">
         <h1>Pengaturan Jadwal Kerja - Semua Divisi</h1>
         
@@ -283,5 +366,101 @@ $days_of_week = [
             </ul>
         </div>
     </div>
+
+    <!-- Popup Daftar Libur & Izin (minimizable, realtime dari config/izin) -->
+    <div id="liburIzinPopup" class="minimized" style="display: none;">
+        <div class="libur-izin-popup-header" onclick="toggleLiburIzinPopup()">
+            <span>📅 Libur & Izin - <?php echo $month_names[$current_month] . ' ' . $current_year; ?></span>
+            <div class="popup-actions" onclick="event.stopPropagation();">
+                <button type="button" onclick="event.stopPropagation(); refreshLiburIzin();" title="Perbarui data">🔄</button>
+                <button type="button" id="liburIzinMinBtn" onclick="event.stopPropagation(); toggleMinimizeLiburIzin();" title="Minimize">−</button>
+            </div>
+        </div>
+        <div class="libur-izin-popup-body">
+            <div class="libur-izin-section">
+                <h4>📌 Semua Libur Bulan Ini</h4>
+                <?php if (empty($holidays_this_month)): ?>
+                    <p class="empty-msg">Tidak ada libur di bulan ini.</p>
+                <?php else: ?>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Hari</th>
+                                <th>Nama</th>
+                                <th>Tipe</th>
+                                <th>Berlaku untuk</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php 
+                            $day_names_id = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                            foreach ($holidays_this_month as $h): 
+                                $dayName = $day_names_id[(int) date('w', strtotime($h['date']))];
+                            ?>
+                                <tr>
+                                    <td><?php echo date('d/m/Y', strtotime($h['date'])); ?></td>
+                                    <td><?php echo $dayName; ?></td>
+                                    <td><?php echo htmlspecialchars($h['name']); ?></td>
+                                    <td><?php echo $h['type'] === 'national' ? 'Nasional' : 'Keagamaan'; ?></td>
+                                    <td><?php echo htmlspecialchars($h['divisions_label']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+            <div class="libur-izin-section">
+                <h4>👤 Izin / Cuti Bulan Ini (Siapa Saja)</h4>
+                <?php if (empty($izin_this_month)): ?>
+                    <p class="empty-msg">Tidak ada data izin/cuti di bulan ini.</p>
+                <?php else: ?>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nama</th>
+                                <th>Periode</th>
+                                <th>Keterangan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($izin_this_month as $i): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($i['employee_id']); ?></td>
+                                    <td><?php echo htmlspecialchars($i['employee_name']); ?></td>
+                                    <td><?php echo date('d/m', strtotime($i['start_date'])); ?> - <?php echo date('d/m/Y', strtotime($i['end_date'])); ?></td>
+                                    <td><?php echo htmlspecialchars($i['reason'] . ($i['description'] ? ' - ' . $i['description'] : '')); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="libur-izin-footer">Data dari config.json & izin.json · Klik 🔄 untuk perbarui</div>
+    </div>
+
+    <script>
+        function toggleLiburIzinPopup() {
+            var popup = document.getElementById('liburIzinPopup');
+            if (popup.style.display === 'none') {
+                popup.style.display = 'flex';
+                popup.classList.remove('minimized');
+            } else {
+                popup.style.display = 'none';
+            }
+        }
+        function toggleMinimizeLiburIzin() {
+            var popup = document.getElementById('liburIzinPopup');
+            popup.classList.toggle('minimized');
+            var btn = document.getElementById('liburIzinMinBtn');
+            btn.title = popup.classList.contains('minimized') ? 'Expand' : 'Minimize';
+            btn.textContent = popup.classList.contains('minimized') ? '+' : '−';
+        }
+        function refreshLiburIzin() {
+            window.location.reload();
+        }
+    </script>
 </body>
 </html>
