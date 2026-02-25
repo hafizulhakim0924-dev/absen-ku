@@ -559,6 +559,25 @@ if ($config) {
         .btn-primary:hover { background: var(--primary-hover); }
         .btn-danger { background: #dc2626; color: white; border-color: #dc2626; }
         .btn-danger:hover { background: #b91c1c; }
+
+        /* Popup Libur & Izin (muncul setelah proses, hanya bisa minimize) */
+        #liburIzinPopup { position: fixed; right: 16px; bottom: 16px; width: 380px; max-width: calc(100vw - 32px); max-height: 70vh; background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 1000; display: none; flex-direction: column; transition: height 0.2s, width 0.2s; }
+        #liburIzinPopup.visible { display: flex; }
+        #liburIzinPopup.minimized { width: 280px; height: 44px; max-height: 44px; overflow: hidden; }
+        #liburIzinPopup.minimized .libur-izin-popup-body { display: none; }
+        #liburIzinPopup .libur-izin-popup-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--primary); color: white; border-radius: 8px 8px 0 0; font-size: 12px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
+        #liburIzinPopup.minimized .libur-izin-popup-header { border-radius: 8px; }
+        #liburIzinPopup .libur-izin-popup-header .popup-actions { display: flex; gap: 6px; align-items: center; }
+        #liburIzinPopup .libur-izin-popup-header button { background: rgba(255,255,255,0.25); border: none; color: white; width: 28px; height: 28px; border-radius: 4px; cursor: pointer; font-size: 14px; line-height: 1; }
+        #liburIzinPopup .libur-izin-popup-header button:hover { background: rgba(255,255,255,0.4); }
+        .libur-izin-popup-body { padding: 10px 12px; overflow-y: auto; flex: 1; min-height: 0; font-size: 11px; }
+        .libur-izin-section { margin-bottom: 12px; }
+        .libur-izin-section h4 { margin: 0 0 6px 0; font-size: 11px; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+        .libur-izin-section table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .libur-izin-section th, .libur-izin-section td { padding: 4px 6px; text-align: left; border: 1px solid var(--border); }
+        .libur-izin-section th { background: #f1f5f9; font-weight: 600; }
+        .libur-izin-section .empty-msg { color: var(--text-muted); font-style: italic; padding: 6px 0; }
+        .libur-izin-footer { padding: 6px 12px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
     </style>
 </head>
 <body>
@@ -886,6 +905,27 @@ if ($config) {
                 </div>
                 <div class="pagination" id="paginationBottom" style="display:none;"></div>
             </div>
+
+            <!-- Popup Libur & Izin: muncul setelah Proses Semua File, hanya bisa minimize, update realtime -->
+            <div id="liburIzinPopup">
+                <div class="libur-izin-popup-header" onclick="toggleMinimizeLiburIzinPopup()">
+                    <span id="liburIzinPopupTitle">📅 Libur & Izin</span>
+                    <div class="popup-actions" onclick="event.stopPropagation();">
+                        <button type="button" id="liburIzinMinBtn" onclick="event.stopPropagation(); toggleMinimizeLiburIzinPopup();" title="Minimize / Expand">−</button>
+                    </div>
+                </div>
+                <div class="libur-izin-popup-body">
+                    <div class="libur-izin-section">
+                        <h4>📌 Semua Libur Bulan Ini</h4>
+                        <div id="liburIzinHolidaysContent"></div>
+                    </div>
+                    <div class="libur-izin-section">
+                        <h4>👤 Izin / Cuti / Sakit (semua yang mempengaruhi data)</h4>
+                        <div id="liburIzinPermitsContent"></div>
+                    </div>
+                </div>
+                <div class="libur-izin-footer">Realtime dari config & data izin bulan ini</div>
+            </div>
         </div>
     </div>
 
@@ -1147,6 +1187,8 @@ if ($config) {
                     document.getElementById('exportSection').style.display = 'block';
                     document.getElementById('results').style.display = 'block';
 
+                    showLiburIzinPopup();
+                    refreshLiburIzinPopup();
                     closeSavedFilesModal();
                     showNotification(`✅ Data ${loadedData.monthName} ${loadedData.year} berhasil dimuat!`, 'success');
                 } else {
@@ -1222,8 +1264,85 @@ if ($config) {
         window.updateConfigFromSettings = function(newConfig) {
             if (newConfig && typeof config !== 'undefined') {
                 config = newConfig;
+                refreshLiburIzinPopup();
             }
         };
+
+        function showLiburIzinPopup() {
+            var popup = document.getElementById('liburIzinPopup');
+            if (popup) {
+                popup.classList.add('visible');
+                popup.classList.remove('minimized');
+                var btn = document.getElementById('liburIzinMinBtn');
+                if (btn) btn.textContent = '−';
+            }
+        }
+        function toggleMinimizeLiburIzinPopup() {
+            var popup = document.getElementById('liburIzinPopup');
+            if (!popup) return;
+            popup.classList.toggle('minimized');
+            var btn = document.getElementById('liburIzinMinBtn');
+            if (btn) {
+                btn.title = popup.classList.contains('minimized') ? 'Expand' : 'Minimize';
+                btn.textContent = popup.classList.contains('minimized') ? '+' : '−';
+            }
+        }
+        function refreshLiburIzinPopup() {
+            var popup = document.getElementById('liburIzinPopup');
+            if (!popup || !popup.classList.contains('visible')) return;
+            if (!selectedMonth || !selectedYear) return;
+            var title = document.getElementById('liburIzinPopupTitle');
+            if (title) title.textContent = '📅 Libur & Izin - ' + monthNames[selectedMonth] + ' ' + selectedYear;
+
+            var firstDay = selectedYear + '-' + String(selectedMonth).padStart(2, '0') + '-01';
+            var lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
+            var lastDayStr = selectedYear + '-' + String(selectedMonth).padStart(2, '0') + '-' + String(lastDay).padStart(2, '0');
+
+            var holidaysHtml = '';
+            var holidays = getAllHolidays().filter(function(h) {
+                var d = h.date;
+                return d >= firstDay && d <= lastDayStr;
+            });
+            holidays.sort(function(a, b) { return a.date.localeCompare(b.date); });
+            if (holidays.length === 0) {
+                holidaysHtml = '<p class="empty-msg">Tidak ada libur di bulan ini.</p>';
+            } else {
+                var dayNamesId = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                holidaysHtml = '<table><thead><tr><th>Tanggal</th><th>Hari</th><th>Nama</th><th>Tipe</th><th>Berlaku untuk</th></tr></thead><tbody>';
+                holidays.forEach(function(h) {
+                    var d = new Date(h.date + 'T00:00:00');
+                    var dayName = dayNamesId[d.getDay()];
+                    var divLabel = 'Semua divisi';
+                    if (h.divisions && h.divisions.length > 0 && h.divisions[0] !== 'all') {
+                        divLabel = (config && config.division_schedules) ? h.divisions.map(function(dk) { return (config.division_schedules[dk] && config.division_schedules[dk].name) || dk; }).join(', ') : h.divisions.join(', ');
+                    }
+                    holidaysHtml += '<tr><td>' + h.date.split('-').reverse().join('/') + '</td><td>' + dayName + '</td><td>' + (h.name || '').replace(/</g, '&lt;') + '</td><td>' + (h.type === 'national' ? 'Nasional' : 'Keagamaan') + '</td><td>' + (divLabel || '').replace(/</g, '&lt;') + '</td></tr>';
+                });
+                holidaysHtml += '</tbody></table>';
+            }
+            var holidaysEl = document.getElementById('liburIzinHolidaysContent');
+            if (holidaysEl) holidaysEl.innerHTML = holidaysHtml;
+
+            var permits = Object.values(permitData).filter(function(p) { return p.month === selectedMonth && p.year === selectedYear; });
+            permits.sort(function(a, b) {
+                if (a.id !== b.id) return String(a.id).localeCompare(String(b.id));
+                return a.date - b.date;
+            });
+            var permitsHtml = '';
+            if (permits.length === 0) {
+                permitsHtml = '<p class="empty-msg">Belum ada izin/cuti di bulan ini.</p>';
+            } else {
+                permitsHtml = '<table><thead><tr><th>ID</th><th>Nama</th><th>Tgl</th><th>Jenis</th><th>Keterangan</th></tr></thead><tbody>';
+                permits.forEach(function(p) {
+                    var nama = (processedData && processedData.employees && processedData.employees[p.id]) ? processedData.employees[p.id].nama : '-';
+                    var typeName = (p.type === 'full') ? 'Penuh' : (p.type === 'arrival') ? 'Kedatangan' : 'Kepulangan';
+                    permitsHtml += '<tr><td>' + (p.id || '').toString().replace(/</g, '&lt;') + '</td><td>' + (nama || '-').replace(/</g, '&lt;') + '</td><td>' + p.date + '</td><td>' + typeName + '</td><td>' + (p.reason || '-').replace(/</g, '&lt;') + '</td></tr>';
+                });
+                permitsHtml += '</tbody></table>';
+            }
+            var permitsEl = document.getElementById('liburIzinPermitsContent');
+            if (permitsEl) permitsEl.innerHTML = permitsHtml;
+        }
 
         function isHoliday(date, month, year, divisionKey) {
             const dateStr = `${year}-${month.toString().padStart(2, '0')}-${date.toString().padStart(2, '0')}`;
@@ -1639,6 +1758,8 @@ if ($config) {
                     document.getElementById('searchSection').style.display = 'block';
                     document.getElementById('exportSection').style.display = 'block';
                     document.getElementById('results').style.display = 'block';
+                    showLiburIzinPopup();
+                    refreshLiburIzinPopup();
                 } catch (error) {
                     alert('Error memproses file: ' + error.message);
                     document.getElementById('loading').style.display = 'none';
@@ -2194,6 +2315,7 @@ function populateBulkDivisionOptions() {
             document.getElementById('exportSection').style.display = 'block';
             document.getElementById('results').style.display = 'block';
             displayCombinedResults(processedData);
+            refreshLiburIzinPopup();
         }
 
         function checkDayIncompleteAttendance(categorizedEntries, isWorkingDay, employeeId, date) {
