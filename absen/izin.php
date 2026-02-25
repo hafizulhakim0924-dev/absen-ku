@@ -118,252 +118,99 @@ ksort($employeeList);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kelola Izin Karyawan</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
+        :root { --primary: #1976D2; --primary-hover: #1565C0; --bg: #f0f4f8; --card: #fff; --border: #e2e8f0; --text: #1e293b; --text-muted: #64748b; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); min-height: 100vh; padding: 12px; font-size: 13px; color: var(--text); }
+        .container { max-width: 1000px; margin: 0 auto; }
         .header {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            background: var(--card);
+            padding: 12px 16px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
         }
-        
-        .header h1 {
-            color: #333;
-            font-size: 2em;
-            margin-bottom: 5px;
-        }
-        
-        .header p {
-            color: #666;
-        }
-        
-        .nav-links {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        
+        .header h1 { color: var(--text); font-size: 16px; margin-bottom: 4px; }
+        .header p { color: var(--text-muted); font-size: 12px; }
+        .nav-links { text-align: center; margin-bottom: 12px; }
         .nav-links a {
             display: inline-block;
-            padding: 10px 20px;
-            background: white;
-            color: #667eea;
+            padding: 6px 14px;
+            background: var(--card);
+            color: var(--primary);
             text-decoration: none;
-            border-radius: 8px;
-            margin: 0 5px;
+            border-radius: 4px;
+            margin: 0 4px;
             font-weight: 600;
-            transition: transform 0.2s;
+            font-size: 12px;
+            border: 1px solid var(--border);
         }
-        
-        .nav-links a:hover {
-            transform: translateY(-2px);
-        }
-        
-        .alert {
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            font-weight: 500;
-        }
-        
-        .alert.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .alert.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-        
+        .nav-links a:hover { background: #eff6ff; border-color: var(--primary); }
+        .alert { padding: 8px 12px; margin-bottom: 12px; border-radius: 4px; font-weight: 500; font-size: 12px; border: 1px solid var(--border); }
+        .alert.success { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .alert.error { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
         .card {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            background: var(--card);
+            border-radius: 6px;
+            padding: 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
         }
-        
-        .card h2 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.5em;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: #333;
-        }
-        
+        .card h2 { color: var(--text); margin-bottom: 12px; font-size: 14px; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; margin-bottom: 4px; font-weight: 600; color: var(--text); font-size: 11px; }
         .form-group input, .form-group select, .form-group textarea {
             width: 100%;
-            padding: 10px 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.3s;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+            transition: border-color 0.2s;
         }
-        
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--primary);
         }
-        
-        .form-group textarea {
-            resize: vertical;
-            min-height: 80px;
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        
+        .form-group textarea { resize: vertical; min-height: 60px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--primary);
             color: white;
-            padding: 12px 25px;
+            padding: 6px 14px;
             border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: transform 0.2s;
-        }
-        
-        .btn:hover {
-            transform: translateY(-1px);
-        }
-        
-        .btn-danger {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
-            padding: 6px 12px;
-            font-size: 12px;
-        }
-        
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        
-        .table th, .table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .table th {
-            background: #f8f9fa;
-            font-weight: 600;
-            font-size: 13px;
-            color: #495057;
-        }
-        
-        .table td {
-            font-size: 14px;
-        }
-        
-        .table tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
             border-radius: 4px;
-            font-size: 11px;
+            cursor: pointer;
+            font-size: 12px;
             font-weight: 600;
+            transition: background 0.2s;
         }
-        
-        .badge-active {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .badge-expired {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
+        .btn:hover { background: var(--primary-hover); }
+        .btn-danger { background: #dc2626; padding: 4px 10px; font-size: 11px; }
+        .btn-danger:hover { background: #b91c1c; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; }
+        .table th, .table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+        .table th { background: #f1f5f9; font-weight: 600; font-size: 11px; color: var(--text-muted); }
+        .table tr:hover { background: #f8fafc; }
+        .badge { display: inline-block; padding: 3px 6px; border-radius: 3px; font-size: 10px; font-weight: 600; }
+        .badge-active { background: #dcfce7; color: #166534; }
+        .badge-expired { background: #fee2e2; color: #991b1b; }
+        .stats-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 12px; }
         .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--primary);
             color: white;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 12px;
+            border-radius: 6px;
             text-align: center;
+            border: 1px solid var(--primary-hover);
         }
-        
-        .stat-card h3 {
-            font-size: 14px;
-            margin-bottom: 10px;
-            opacity: 0.9;
-        }
-        
-        .stat-card .stat-number {
-            font-size: 32px;
-            font-weight: bold;
-        }
-        
-        .filter-section {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .filter-section input, .filter-section select {
-            padding: 8px 12px;
-            border: 1px solid #dee2e6;
-            border-radius: 5px;
-            margin-right: 10px;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #6c757d;
-        }
-        
-        .empty-state svg {
-            width: 64px;
-            height: 64px;
-            margin-bottom: 15px;
-            opacity: 0.5;
-        }
+        .stat-card h3 { font-size: 11px; margin-bottom: 6px; opacity: 0.9; }
+        .stat-card .stat-number { font-size: 22px; font-weight: bold; }
+        .filter-section { background: #f8fafc; padding: 10px; border-radius: 4px; margin-bottom: 12px; border: 1px solid var(--border); }
+        .filter-section input, .filter-section select { padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px; margin-right: 8px; font-size: 12px; }
+        .empty-state { text-align: center; padding: 24px; color: var(--text-muted); font-size: 12px; }
+        .empty-state svg { width: 48px; height: 48px; margin-bottom: 10px; opacity: 0.5; }
     </style>
 </head>
 <body>

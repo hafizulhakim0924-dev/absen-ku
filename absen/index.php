@@ -387,254 +387,178 @@ if ($config) {
     <title>Sistem Absensi Karyawan - Multi Mesin Terbaru</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
-        .container { max-width: 1400px; margin: 0 auto; padding: 10px; }
+        :root { --primary: #1976D2; --primary-hover: #1565C0; --bg: #f0f4f8; --card: #fff; --border: #e2e8f0; --text: #1e293b; --text-muted: #64748b; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: var(--bg); font-size: 13px; color: var(--text); }
+        .container { max-width: 1400px; margin: 0 auto; padding: 8px; }
         
-        /* SPA Navigation Tabs */
+        /* SPA Nav - compact */
         .spa-nav {
-            background: white;
-            border-bottom: 2px solid #e0e0e0;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
             padding: 0;
             margin: 0;
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
-        .spa-nav-tabs {
-            display: flex;
-            flex-wrap: wrap;
-            list-style: none;
-            margin: 0;
-            padding: 0;
-        }
+        .spa-nav-tabs { display: flex; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; }
         .spa-nav-tab {
-            padding: 15px 20px;
+            padding: 8px 14px;
             cursor: pointer;
-            border-bottom: 3px solid transparent;
-            transition: all 0.3s;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
             font-weight: 500;
-            color: #666;
-            background: white;
+            color: var(--text-muted);
+            background: none;
             border: none;
-            font-size: 14px;
-        }
-        .spa-nav-tab:hover {
-            background: #f8f9fa;
-            color: #333;
-        }
-        .spa-nav-tab.active {
-            color: #667eea;
-            border-bottom-color: #667eea;
-            background: #f8f9fa;
-        }
-        .spa-content {
-            display: none;
-            animation: fadeIn 0.3s;
-            width: 100%;
-            min-height: calc(100vh - 70px);
-            background: #f5f5f5;
-        }
-        .spa-content.active {
-            display: block !important;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .spa-iframe {
-            width: 100%;
-            height: calc(100vh - 70px);
-            min-height: 500px;
-            border: none;
-            background: white;
-            display: block;
-        }
-        h1 { margin: 10px 0; font-size: 20px; }
-        h3 { margin: 15px 0 10px 0; font-size: 16px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
-        .month-buttons { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 8px; 
-            margin: 15px 0; 
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .month-buttons button { 
-            padding: 10px 18px; 
-            border: 2px solid #e0e0e0; 
-            background: white; 
-            cursor: pointer; 
-            border-radius: 6px;
-            font-size: 13px;
-            font-weight: 500;
-            color: #333;
-            transition: all 0.3s;
-        }
-        .month-buttons button:hover {
-            border-color: #667eea;
-            background: #f5f7ff;
-            color: #667eea;
-        }
-        .month-buttons button.active { 
-            background: #667eea; 
-            color: white; 
-            border-color: #667eea;
-        }
-        .file-section { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
-            gap: 15px; 
-            margin: 20px 0; 
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .file-input-group { 
-            padding: 15px; 
-            border: 2px solid #e0e0e0; 
-            border-radius: 6px;
-            background: #fafafa;
-            transition: all 0.3s;
-        }
-        .file-input-group:hover {
-            border-color: #667eea;
-            background: #f5f7ff;
-        }
-        .file-input-group label { 
-            font-weight: bold; 
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-size: 14px;
-        }
-        .file-input-group button { 
-            margin: 5px 0; 
-            padding: 8px 16px; 
-            border: 1px solid #667eea; 
-            background: #667eea; 
-            color: white;
-            cursor: pointer; 
-            border-radius: 4px;
-            font-size: 13px;
-            transition: all 0.3s;
-        }
-        .file-input-group button:hover:not(:disabled) {
-            background: #5568d3;
-            border-color: #5568d3;
-        }
-        .file-input-group button:disabled { 
-            opacity: 0.5; 
-            cursor: not-allowed;
-            background: #999;
-            border-color: #999;
-        }
-        .file-input-group div {
-            margin-top: 8px;
             font-size: 12px;
-            color: #666;
-            padding: 5px;
-            background: white;
-            border-radius: 4px;
-            min-height: 20px;
         }
-        .process-button { 
-            background: #667eea; 
-            color: white; 
-            padding: 12px 30px; 
-            border: none; 
-            cursor: pointer; 
-            margin: 20px 0; 
+        .spa-nav-tab:hover { background: #f1f5f9; color: var(--text); }
+        .spa-nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: #eff6ff; }
+        .spa-content { display: none; animation: fadeIn 0.2s; width: 100%; min-height: calc(100vh - 45px); background: var(--bg); }
+        .spa-content.active { display: block !important; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .spa-iframe { width: 100%; height: calc(100vh - 45px); min-height: 400px; border: none; background: var(--card); display: block; }
+        
+        h1 { margin: 6px 0; font-size: 16px; color: var(--text); }
+        h3 { margin: 10px 0 6px 0; font-size: 14px; border-bottom: 1px solid var(--border); padding-bottom: 4px; color: var(--text); }
+        
+        /* Month buttons - compact */
+        .month-buttons {
+            display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0;
+            padding: 10px;
+            background: var(--card);
             border-radius: 6px;
-            font-size: 15px;
-            font-weight: 600;
-            transition: all 0.3s;
-            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+            border: 1px solid var(--border);
         }
-        .process-button:hover:not(:disabled) {
-            background: #5568d3;
-            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
-            transform: translateY(-1px);
+        .month-buttons button {
+            padding: 6px 12px; border: 1px solid var(--border); background: var(--card);
+            cursor: pointer; border-radius: 4px; font-size: 11px; font-weight: 500; color: var(--text);
+            transition: all 0.2s;
         }
-        .process-button:disabled { 
-            background: #999; 
-            cursor: not-allowed;
-            box-shadow: none;
+        .month-buttons button:hover { border-color: var(--primary); background: #eff6ff; color: var(--primary); }
+        .month-buttons button.active { background: var(--primary); color: white; border-color: var(--primary); }
+        
+        .file-section {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px;
+            margin: 12px 0; padding: 10px;
+            background: var(--card); border-radius: 6px; border: 1px solid var(--border);
         }
-        .search-section { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
-        .search-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-        .search-input { padding: 5px; border: 1px solid #999; min-width: 200px; }
-        .filter-select { padding: 5px; border: 1px solid #999; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 10px 0; }
-        .stat-card { background: #f5f5f5; border: 1px solid #ddd; padding: 10px; text-align: center; }
-        .stat-card h4 { margin: 0 0 5px 0; font-size: 12px; }
-        .stat-card .stat-number { font-size: 20px; font-weight: bold; }
-        .export-section { margin: 10px 0; text-align: center; }
-        .export-section button { background: white; border: 1px solid #999; padding: 8px 15px; margin: 3px; cursor: pointer; }
-        .export-section button:hover { background: #f0f0f0; }
-        .save-button { background: #27ae60 !important; color: white !important; font-weight: bold; }
-        .save-button:hover { background: #229954 !important; }
-        .load-button { background: #3498db !important; color: white !important; }
-        .load-button:hover { background: #2980b9 !important; }
-        .results-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-        .results-table th { background: #f5f5f5; border: 1px solid #ddd; padding: 8px; text-align: left; }
-        .results-table td { padding: 6px; border: 1px solid #ddd; vertical-align: top; }
-        .attendance-detail { max-width: 520px; font-size: 11px; }
-        .penalty-info { color: red; font-weight: bold; }
-        .day-info { margin-bottom: 5px; padding: 3px 5px; background: #f9f9f9; border-left: 2px solid #999; }
-        .cal-wrap { margin-top: 6px; }
-        .cal-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin-bottom: 2px; font-size: 9px; font-weight: bold; color: #555; text-align: center; }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-        .cal-cell { aspect-ratio: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; border: 1px solid rgba(0,0,0,0.1); }
-        .cal-cell:hover { filter: brightness(1.1); box-shadow: 0 0 0 2px rgba(0,0,0,0.2); }
-        .cal-cell.empty { background: #f0f0f0; cursor: default; border: none; }
-        .cal-cell.hadir { background: #27ae60; color: white; }
-        .cal-cell.alfa { background: #e74c3c; color: white; }
-        .cal-cell.libur { background: #f1c40f; color: #333; }
-        .cal-cell.libur-divisi { background: #f39c12; color: white; }
-        .cal-cell.weekend { background: #95a5a6; color: white; }
-        .cal-cell.izin { background: #3498db; color: white; }
-        .cal-cell.denda { background: #e67e22; color: white; }
-        .cal-cell .cal-num { font-size: 12px; }
-        .cal-cell .cal-penalty { font-size: 8px; color: #fff; background: #c0392b; padding: 0 3px; border-radius: 2px; margin-top: 1px; }
-        .cal-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: 9px; }
-        .cal-legend span { padding: 2px 6px; border-radius: 3px; }
-        #dayDetailModal .modal-content { max-width: 420px; font-size: 12px; }
-        #dayDetailModal .detail-line { margin: 4px 0; padding: 4px 0; border-bottom: 1px solid #eee; }
-        .time-entry { margin-left: 8px; }
-        .toggle-btn { background: white; border: 1px solid #999; padding: 3px 6px; cursor: pointer; font-size: 10px; }
-        .summary-row { background: #f5f5f5 !important; font-weight: bold; }
-        .loading { text-align: center; padding: 20px; }
-        .alert { padding: 10px; margin: 10px 0; border: 1px solid #ddd; }
-        .alert-warning { background: #fffacd; }
-        .alert-success { background: #d4edda; }
-        .alert-error { background: #f8d7da; }
-        .alert-info { background: #d1ecf1; }
-        .pagination { display: flex; justify-content: center; gap: 5px; margin: 10px 0; }
-        .pagination button { padding: 5px 10px; border: 1px solid #999; background: white; cursor: pointer; }
-        .pagination button.active { background: #000; color: white; }
+        .file-input-group {
+            padding: 10px; border: 1px solid var(--border); border-radius: 4px;
+            background: #f8fafc; transition: all 0.2s;
+        }
+        .file-input-group:hover { border-color: var(--primary); background: #eff6ff; }
+        .file-input-group label { font-weight: 600; display: block; margin-bottom: 4px; color: var(--text); font-size: 12px; }
+        .file-input-group button {
+            margin: 4px 0; padding: 6px 12px; border: none; background: var(--primary); color: white;
+            cursor: pointer; border-radius: 4px; font-size: 11px; transition: all 0.2s;
+        }
+        .file-input-group button:hover:not(:disabled) { background: var(--primary-hover); }
+        .file-input-group button:disabled { opacity: 0.5; cursor: not-allowed; background: var(--text-muted); }
+        .file-input-group div { margin-top: 6px; font-size: 11px; color: var(--text-muted); padding: 4px; background: var(--card); border-radius: 4px; min-height: 18px; }
+        
+        .process-button {
+            background: var(--primary); color: white; padding: 8px 20px; border: none; cursor: pointer;
+            margin: 12px 0; border-radius: 4px; font-size: 12px; font-weight: 600; transition: all 0.2s;
+        }
+        .process-button:hover:not(:disabled) { background: var(--primary-hover); }
+        .process-button:disabled { background: var(--text-muted); cursor: not-allowed; }
+        
+        .search-section { margin: 8px 0; padding: 8px; border: 1px solid var(--border); background: var(--card); border-radius: 4px; }
+        .search-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .search-input { padding: 4px 8px; border: 1px solid var(--border); min-width: 160px; font-size: 12px; border-radius: 4px; }
+        .filter-select { padding: 4px 8px; border: 1px solid var(--border); font-size: 12px; border-radius: 4px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 8px 0; }
+        .stat-card { background: var(--card); border: 1px solid var(--border); padding: 8px; text-align: center; border-radius: 4px; }
+        .stat-card h4 { margin: 0 0 4px 0; font-size: 11px; color: var(--text-muted); }
+        .stat-card .stat-number { font-size: 16px; font-weight: bold; color: var(--primary); }
+        
+        .export-section { margin: 8px 0; text-align: center; }
+        .export-section button {
+            background: var(--card); border: 1px solid var(--border); padding: 6px 12px; margin: 2px;
+            cursor: pointer; font-size: 11px; border-radius: 4px; color: var(--text);
+        }
+        .export-section button:hover { background: #eff6ff; border-color: var(--primary); color: var(--primary); }
+        .save-button { background: var(--primary) !important; color: white !important; border-color: var(--primary) !important; }
+        .save-button:hover { background: var(--primary-hover) !important; }
+        .load-button { background: var(--primary) !important; color: white !important; border-color: var(--primary) !important; }
+        .load-button:hover { background: var(--primary-hover) !important; }
+        
+        .results-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11px; }
+        .results-table th { background: #f1f5f9; border: 1px solid var(--border); padding: 6px 8px; text-align: left; font-size: 11px; }
+        .results-table td { padding: 5px 8px; border: 1px solid var(--border); vertical-align: top; }
+        .attendance-detail { max-width: 480px; font-size: 10px; }
+        .penalty-info { color: #dc2626; font-weight: bold; }
+        .day-info { margin-bottom: 4px; padding: 2px 6px; background: #f8fafc; border-left: 2px solid var(--primary); }
+        .cal-wrap { margin-top: 4px; }
+        .cal-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin-bottom: 2px; font-size: 8px; font-weight: bold; color: var(--text-muted); text-align: center; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+        .cal-cell { aspect-ratio: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 3px; cursor: pointer; font-size: 9px; font-weight: bold; border: 1px solid rgba(0,0,0,0.08); }
+        .cal-cell:hover { filter: brightness(1.05); box-shadow: 0 0 0 1px var(--primary); }
+        .cal-cell.empty { background: #f1f5f9; cursor: default; border: none; }
+        .cal-cell.hadir { background: #16a34a; color: white; }
+        .cal-cell.alfa { background: #dc2626; color: white; }
+        .cal-cell.libur { background: #eab308; color: #333; }
+        .cal-cell.libur-divisi { background: #ea580c; color: white; }
+        .cal-cell.weekend { background: #94a3b8; color: white; }
+        .cal-cell.izin { background: var(--primary); color: white; }
+        .cal-cell.denda { background: #c2410c; color: white; }
+        .cal-cell .cal-num { font-size: 10px; }
+        .cal-cell .cal-penalty { font-size: 7px; color: #fff; background: #b91c1c; padding: 0 2px; border-radius: 2px; margin-top: 0; }
+        .cal-legend { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; font-size: 8px; }
+        .cal-legend span { padding: 2px 5px; border-radius: 2px; }
+        
+        #dayDetailModal .modal-content { max-width: 380px; font-size: 11px; }
+        #dayDetailModal .detail-line { margin: 3px 0; padding: 3px 0; border-bottom: 1px solid var(--border); }
+        .time-entry { margin-left: 6px; }
+        .toggle-btn { background: var(--card); border: 1px solid var(--border); padding: 2px 6px; cursor: pointer; font-size: 9px; border-radius: 3px; }
+        .summary-row { background: #f1f5f9 !important; font-weight: bold; }
+        .loading { text-align: center; padding: 12px; font-size: 12px; }
+        
+        .alert { padding: 8px 10px; margin: 8px 0; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; }
+        .alert-warning { background: #fef9c3; }
+        .alert-success { background: #dcfce7; }
+        .alert-error { background: #fee2e2; }
+        .alert-info { background: #e0f2fe; }
+        
+        .pagination { display: flex; justify-content: center; gap: 4px; margin: 8px 0; }
+        .pagination button { padding: 4px 8px; border: 1px solid var(--border); background: var(--card); cursor: pointer; font-size: 11px; border-radius: 4px; }
+        .pagination button.active { background: var(--primary); color: white; border-color: var(--primary); }
         .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .permit-badge { display: inline-block; padding: 2px 6px; margin-left: 5px; font-size: 10px; border-radius: 3px; font-weight: bold; }
-        .permit-full { background: #74b9ff; color: white; }
-        .permit-arrival { background: #fdcb6e; color: white; }
-        .permit-departure { background: #e17055; color: white; }
-        .waived-penalty { color: #999; text-decoration: line-through; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
-        .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; border: 1px solid #999; border-radius: 5px; }
-        .saved-files-list { max-height: 400px; overflow-y: auto; }
-        .file-item { padding: 10px; border: 1px solid #ddd; margin: 5px 0; display: flex; justify-content: space-between; align-items: center; }
-        .file-item:hover { background: #f9f9f9; }
-        .file-actions button { margin-left: 5px; padding: 5px 10px; font-size: 11px; }
-        .bulk-permit-section { background: #e8f5e9; padding: 15px; border: 2px solid #4caf50; border-radius: 5px; margin: 15px 0; }
-        .bulk-permit-section h4 { margin: 0 0 10px 0; color: #2e7d32; }
-        .bulk-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 10px 0; }
-        .bulk-controls label { font-weight: bold; font-size: 12px; display: block; margin-bottom: 3px; }
-        .bulk-controls select, .bulk-controls input { width: 100%; padding: 6px; border: 1px solid #999; }
-        .apply-bulk-btn { background: #4caf50 !important; color: white !important; padding: 10px 20px; border: none; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        .apply-bulk-btn:hover { background: #45a049 !important; }
+        
+        .permit-badge { display: inline-block; padding: 2px 5px; margin-left: 4px; font-size: 9px; border-radius: 2px; font-weight: bold; }
+        .permit-full { background: #0ea5e9; color: white; }
+        .permit-arrival { background: #eab308; color: #333; }
+        .permit-departure { background: #f97316; color: white; }
+        .waived-penalty { color: var(--text-muted); text-decoration: line-through; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 1000; }
+        .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card); padding: 14px; max-width: 520px; width: 90%; max-height: 85vh; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-size: 12px; }
+        .saved-files-list { max-height: 320px; overflow-y: auto; }
+        .file-item { padding: 8px; border: 1px solid var(--border); margin: 4px 0; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; }
+        .file-item:hover { background: #f8fafc; }
+        .file-actions button { margin-left: 4px; padding: 4px 8px; font-size: 10px; border-radius: 4px; border: 1px solid var(--border); background: var(--card); cursor: pointer; }
+        .file-actions button:first-of-type { background: var(--primary); color: white; border-color: var(--primary); }
+        .file-actions button:last-of-type { background: #dc2626; color: white; border-color: #dc2626; }
+        
+        .bulk-permit-section { background: #eff6ff; padding: 10px; border: 1px solid var(--primary); border-radius: 4px; margin: 10px 0; }
+        .bulk-permit-section h4 { margin: 0 0 8px 0; color: var(--primary); font-size: 12px; }
+        .bulk-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin: 8px 0; }
+        .bulk-controls label { font-weight: 600; font-size: 11px; display: block; margin-bottom: 2px; }
+        .bulk-controls select, .bulk-controls input { width: 100%; padding: 5px; border: 1px solid var(--border); font-size: 11px; border-radius: 4px; }
+        .apply-bulk-btn { background: var(--primary) !important; color: white !important; padding: 6px 14px; border: none !important; cursor: pointer; font-weight: 600; margin-top: 8px; font-size: 11px; border-radius: 4px; }
+        .apply-bulk-btn:hover { background: var(--primary-hover) !important; }
+        
+        /* Utility buttons - use in inline or class */
+        .btn { padding: 5px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--card); color: var(--text); }
+        .btn:hover { background: #f1f5f9; }
+        .btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-danger { background: #dc2626; color: white; border-color: #dc2626; }
+        .btn-danger:hover { background: #b91c1c; }
     </style>
 </head>
 <body>
@@ -792,8 +716,8 @@ if ($config) {
                         <option value="with-penalty">Ada Denda</option>
                         <option value="no-penalty">Tanpa Denda</option>
                     </select>
-                    <button onclick="clearFilters()" style="padding: 5px 10px; border: 1px solid #999; background: white; cursor: pointer;">Reset</button>
-                    <button onclick="openPermitModal()" style="padding: 5px 10px; border: 1px solid #999; background: white; cursor: pointer;">Kelola Izin</button>
+                    <button onclick="clearFilters()" class="btn">Reset</button>
+                    <button onclick="openPermitModal()" class="btn btn-primary">Kelola Izin</button>
                 </div>
                 <div style="margin-top: 10px;">
                     <span id="searchResults">Menampilkan semua data</span>
@@ -879,8 +803,8 @@ if ($config) {
                         <input type="text" id="permitReason" placeholder="Sakit, Cuti, Keperluan Keluarga, dll" style="width: 100%; padding: 5px; border: 1px solid #999; margin-top: 5px;">
                     </div>
                     <div style="margin: 15px 0; text-align: center;">
-                        <button onclick="addPermit()" style="padding: 8px 15px; background: #000; color: white; border: none; cursor: pointer; margin-right: 5px;">Tambah Izin</button>
-                        <button onclick="closePermitModal()" style="padding: 8px 15px; border: 1px solid #999; background: white; cursor: pointer;">Tutup</button>
+                        <button onclick="addPermit()" class="btn btn-primary" style="margin-right: 5px;">Tambah Izin</button>
+                        <button onclick="closePermitModal()" class="btn">Tutup</button>
                     </div>
                     <hr style="margin: 20px 0;">
                     <h4>Daftar Izin untuk <span id="permitMonthName"></span>:</h4>
@@ -911,13 +835,13 @@ if ($config) {
                                 <input type="text" id="dayDetailPermitReason" placeholder="Sakit, Cuti, Keperluan, dll" style="width: 100%; padding: 6px; border: 1px solid #999;">
                             </div>
                             <div style="display: flex; gap: 8px;">
-                                <button type="button" id="dayDetailPermitSaveBtn" onclick="saveDayDetailPermit()" style="padding: 8px 14px; background: #27ae60; color: white; border: none; cursor: pointer;">Simpan Izin</button>
-                                <button type="button" id="dayDetailPermitRemoveBtn" onclick="removeDayDetailPermit()" style="padding: 8px 14px; background: #e74c3c; color: white; border: none; cursor: pointer; display: none;">Hapus Izin</button>
-                                <button type="button" onclick="closeDayDetailModal()" style="padding: 8px 14px; border: 1px solid #999; background: #f5f5f5; cursor: pointer;">Tutup</button>
+                                <button type="button" id="dayDetailPermitSaveBtn" onclick="saveDayDetailPermit()" class="btn btn-primary">Simpan Izin</button>
+                                <button type="button" id="dayDetailPermitRemoveBtn" onclick="removeDayDetailPermit()" class="btn btn-danger" style="display: none;">Hapus Izin</button>
+                                <button type="button" onclick="closeDayDetailModal()" class="btn">Tutup</button>
                             </div>
                         </div>
                     </div>
-                    <div style="margin-top: 12px;"><button type="button" onclick="closeDayDetailModal()" style="padding: 6px 12px; border: 1px solid #999; background: #f5f5f5; cursor: pointer;">Tutup</button></div>
+                    <div style="margin-top: 12px;"><button type="button" onclick="closeDayDetailModal()" class="btn">Tutup</button></div>
                 </div>
             </div>
             <div id="savedFilesModal" class="modal">
@@ -927,7 +851,7 @@ if ($config) {
                         <p style="text-align: center; color: #999;">Memuat daftar file...</p>
                     </div>
                     <div style="margin-top: 15px; text-align: center;">
-                        <button onclick="closeSavedFilesModal()" style="padding: 8px 15px; border: 1px solid #999; background: white; cursor: pointer;">Tutup</button>
+                        <button onclick="closeSavedFilesModal()" class="btn">Tutup</button>
                     </div>
                 </div>
             </div>
