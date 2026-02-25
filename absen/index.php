@@ -588,6 +588,7 @@ if ($config) {
             <li><button class="spa-nav-tab" onclick="showSPATab('edit', this)" data-tab="edit">✏️ Edit Data</button></li>
             <li><button class="spa-nav-tab" onclick="showSPATab('settings', this)" data-tab="settings">⚙️ Pengaturan</button></li>
             <li><button class="spa-nav-tab" onclick="showSPATab('izin', this)" data-tab="izin">📝 Izin & Cuti</button></li>
+            <li><button class="spa-nav-tab" onclick="showSPATab('rekap', this)" data-tab="rekap">📊 Rekap Denda</button></li>
             <li><button class="spa-nav-tab" onclick="showSPATab('work_schedule', this)" data-tab="work_schedule">📅 Jadwal Kerja</button></li>
         </ul>
     </nav>
@@ -607,6 +608,34 @@ if ($config) {
     </div>
     <div id="spa-content-izin" class="spa-content" style="display: none;">
         <iframe class="spa-iframe" src="izin.php" id="iframe-izin" title="Izin & Cuti"></iframe>
+    </div>
+    <div id="spa-content-rekap" class="spa-content" style="display: none;">
+        <div class="container" style="max-width: 1200px; padding: 16px;">
+            <h1 style="font-size: 16px; margin-bottom: 12px;">📊 Rekap Denda per Divisi & Karyawan</h1>
+            <p id="rekapNoData" class="alert alert-info" style="display: none;">Proses data di <strong>Halaman Utama</strong> terlebih dahulu (pilih bulan, upload file, lalu Proses Semua File).</p>
+            <div id="rekapContent" style="display: none;">
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Urutan: denda terendah → tertinggi. Data sesuai bulan & tahun yang diproses.</p>
+                <div style="margin-bottom: 10px;">
+                    <button type="button" class="btn btn-primary" onclick="exportRekapDendaExcel()">📥 Export Excel Rekap Denda</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="results-table" id="rekapDendaTable">
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Divisi</th>
+                                <th>ID</th>
+                                <th>Nama</th>
+                                <th>Tanggal Kena Denda</th>
+                                <th>Keterangan per Tanggal</th>
+                                <th>Total Denda</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rekapDendaBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
     <div id="spa-content-work_schedule" class="spa-content" style="display: none;">
         <iframe class="spa-iframe" src="work_schedule.php" id="iframe-work_schedule" title="Jadwal Kerja"></iframe>
@@ -2318,6 +2347,107 @@ function populateBulkDivisionOptions() {
             refreshLiburIzinPopup();
         }
 
+        /** Ambil keterangan singkat dari detailHtml (untuk rekap denda). */
+        function getPenaltyKeteranganFromDetail(detailHtml, status) {
+            if (!detailHtml) return status === 'alfa' ? 'Alfa' : 'Denda';
+            const div = document.createElement('div');
+            div.innerHTML = detailHtml;
+            const text = (div.textContent || '').replace(/\s+/g, ' ').trim();
+            if (text.indexOf('Alfa') !== -1) return 'Alfa';
+            if (text.indexOf('Terlambat') !== -1) {
+                const m = text.match(/Terlambat[^–-]*?(?:\d+\s*menit)?[^0-9]*?Rp\s*[\d.,]+/i) || text.match(/Terlambat[^.]+/);
+                return m ? m[0].trim().substring(0, 60) : 'Terlambat';
+            }
+            if (text.indexOf('Pulang awal') !== -1 || text.indexOf('pulang') !== -1) {
+                const m = text.match(/Pulang[^.]+/);
+                return m ? m[0].trim().substring(0, 50) : 'Pulang awal';
+            }
+            if (text.indexOf('Tidak ada absen') !== -1) return 'Tidak absen datang/pulang';
+            return status === 'alfa' ? 'Alfa' : 'Denda';
+        }
+
+        /** Data rekap denda untuk tabel & export (disimpan saat build). */
+        window.rekapDendaRows = [];
+
+        /** Bangun tabel Rekap Denda: divisi, orang, tgl kena denda, keterangan, total; urut denda terendah→tertinggi. */
+        function buildRekapDenda() {
+            const noDataEl = document.getElementById('rekapNoData');
+            const contentEl = document.getElementById('rekapContent');
+            const tbody = document.getElementById('rekapDendaBody');
+            if (!noDataEl || !contentEl || !tbody) return;
+
+            if (!processedData || !selectedMonth || !selectedYear) {
+                noDataEl.style.display = 'block';
+                contentEl.style.display = 'none';
+                return;
+            }
+            noDataEl.style.display = 'none';
+            contentEl.style.display = 'block';
+
+            const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+            const employees = processedData.employees || {};
+            const rows = [];
+
+            Object.keys(employees).forEach(function(id) {
+                const emp = employees[id];
+                const attendanceByDate = emp.attendanceByDate || {};
+                const details = [];
+                let totalPenalty = 0;
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const st = getDayStatusForCalendar(id, d, selectedMonth, selectedYear, emp.divisi, attendanceByDate);
+                    if (st.penaltyAmount && st.penaltyAmount > 0) {
+                        const ket = getPenaltyKeteranganFromDetail(st.detailHtml, st.status);
+                        details.push({ date: d, amount: st.penaltyAmount, keterangan: ket });
+                        totalPenalty += st.penaltyAmount;
+                    }
+                }
+                rows.push({
+                    divisi: getDivisionFullName(emp.divisi),
+                    id: id,
+                    nama: emp.nama || '-',
+                    details: details,
+                    totalPenalty: totalPenalty
+                });
+            });
+
+            rows.sort(function(a, b) { return a.totalPenalty - b.totalPenalty; });
+            window.rekapDendaRows = rows;
+
+            tbody.innerHTML = '';
+            rows.forEach(function(r, idx) {
+                const tglList = r.details.length ? r.details.map(function(d) { return d.date; }).join(', ') : '-';
+                const ketList = r.details.length ? r.details.map(function(d) { return 'Tgl ' + d.date + ': ' + formatCurrency(d.amount) + ' (' + d.keterangan + ')'; }).join('; ') : '-';
+                const tr = document.createElement('tr');
+                tr.innerHTML = '<td>' + (idx + 1) + '</td><td>' + (r.divisi || '-').replace(/</g, '&lt;') + '</td><td><strong>' + (r.id || '').toString().replace(/</g, '&lt;') + '</strong></td><td>' + (r.nama || '-').replace(/</g, '&lt;') + '</td><td>' + tglList + '</td><td style="font-size: 10px;">' + (ketList || '-').replace(/</g, '&lt;') + '</td><td style="font-weight: bold; color: ' + (r.totalPenalty > 0 ? '#dc2626' : 'inherit') + ';">' + formatCurrency(r.totalPenalty) + '</td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        /** Export Rekap Denda ke Excel (detail & ringkas). */
+        function exportRekapDendaExcel() {
+            const rows = window.rekapDendaRows;
+            if (!rows || rows.length === 0) {
+                alert('Tidak ada data rekap. Buka tab Rekap Denda setelah memproses data.');
+                return;
+            }
+            const monthName = selectedMonth && monthNames[selectedMonth] ? monthNames[selectedMonth] : '';
+            const year = selectedYear || '';
+            const header = ['No', 'Divisi', 'ID', 'Nama', 'Tanggal Kena Denda', 'Keterangan per Tanggal', 'Total Denda'];
+            const data = rows.map(function(r, idx) {
+                const tglList = r.details.length ? r.details.map(function(d) { return d.date; }).join(', ') : '-';
+                const ketList = r.details.length ? r.details.map(function(d) { return 'Tgl ' + d.date + ': ' + formatCurrency(d.amount) + ' (' + d.keterangan + ')'; }).join('; ') : '-';
+                return [idx + 1, r.divisi || '', r.id || '', r.nama || '', tglList, ketList, r.totalPenalty];
+            });
+            const wsData = [header].concat(data);
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const colWidths = [{ wch: 5 }, { wch: 18 }, { wch: 12 }, { wch: 28 }, { wch: 22 }, { wch: 55 }, { wch: 14 }];
+            ws['!cols'] = colWidths;
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Rekap Denda');
+            const filename = 'Rekap_Denda_' + (monthName || '') + '_' + year + '_' + Date.now() + '.xlsx';
+            XLSX.writeFile(wb, filename);
+        }
+
         function checkDayIncompleteAttendance(categorizedEntries, isWorkingDay, employeeId, date) {
             if (!isWorkingDay) return false;
             
@@ -2937,6 +3067,7 @@ function exportToExcel(type) {
             if (contentDiv) {
                 contentDiv.classList.add('active');
                 contentDiv.style.display = 'block';
+                if (tabName === 'rekap') buildRekapDenda();
                 console.log('Content div found and shown:', contentDiv.id);
             } else {
                 console.error('Content div not found for tab:', tabName);
@@ -2962,7 +3093,7 @@ function exportToExcel(type) {
         function initTabFromUrl() {
             const urlParams = new URLSearchParams(window.location.search);
             const initialTab = urlParams.get('tab') || 'home';
-            const validTabs = ['home', 'edit', 'settings', 'izin', 'work_schedule'];
+            const validTabs = ['home', 'edit', 'settings', 'izin', 'rekap', 'work_schedule'];
             const tab = validTabs.includes(initialTab) ? initialTab : 'home';
             showSPATab(tab);
         }
