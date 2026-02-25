@@ -1282,6 +1282,16 @@ if ($config) {
             return !isWeekend && !holiday;
         }
 
+        /** Keterangan mengapa tgl tidak dihitung (libur, weekend, event). Return null jika hari kerja. */
+        function getReasonDateNotCounted(date, month, year, divisionKey) {
+            const dayInfo = getDayInfo(date, month, year, divisionKey);
+            if (dayInfo.isWorkingDay) return null;
+            if (dayInfo.holiday) return 'Libur: ' + (dayInfo.holiday.name || 'Hari libur');
+            if (dayInfo.specialEvent) return 'Event: ' + (dayInfo.specialEvent.name || 'Kegiatan khusus');
+            if (dayInfo.isWeekend) return 'Weekend';
+            return 'Tidak masuk jadwal kerja';
+        }
+
         function getIncompleteAttendancePenalty() {
             if (config && config.absence_policy && config.absence_policy.incomplete_attendance_penalty) {
                 return config.absence_policy.incomplete_attendance_penalty;
@@ -2074,6 +2084,19 @@ function populateBulkDivisionOptions() {
                         const permitDisplay = `<div class="day-info" style="background: #dfe6e9; border-left-color: #74b9ff;">Hari Izin Penuh: ${permitInfo}</div>`;
                         attendancePreview += permitDisplay;
                         attendanceFull += permitDisplay;
+                    }
+                    
+                    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+                    const notCountedLines = [];
+                    for (let d = 1; d <= daysInMonth; d++) {
+                        const reason = getReasonDateNotCounted(d, selectedMonth, selectedYear, employee.divisi);
+                        if (reason) notCountedLines.push({ date: d, reason: reason });
+                    }
+                    if (notCountedLines.length > 0) {
+                        const notCountedHtml = notCountedLines.map(n => `Ket: tgl ${n.date} tidak dihitung karena: ${n.reason}`).join('<br>');
+                        const notCountedBlock = `<div class="day-info" style="background: #f5f5f5; border-left-color: #95a5a6; margin-top: 8px; font-size: 11px;"><strong>Tanggal tidak dihitung:</strong><br>${notCountedHtml}</div>`;
+                        attendancePreview += notCountedBlock;
+                        attendanceFull += notCountedBlock;
                     }
                     
                     let penaltySummary = '';
