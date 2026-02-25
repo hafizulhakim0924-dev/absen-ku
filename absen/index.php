@@ -1482,11 +1482,11 @@ if ($config) {
             const noDeparture = dayInfo.isWorkingDay && !categorized.some(e => e.type === 'departure') && !getPermitForEmployee(empId, date, 'departure');
             const incPenalty = typeof getIncompleteAttendancePenalty === 'function' ? getIncompleteAttendancePenalty() : 15000;
             if (noArrival) {
-                if (!hasIncomplete) dayPenalty += incPenalty;
+                dayPenalty += incPenalty;
                 parts.push('Tidak ada absen datang – denda: ' + formatCurrency(incPenalty));
             }
             if (noDeparture) {
-                if (!hasIncomplete) dayPenalty += incPenalty;
+                dayPenalty += incPenalty;
                 parts.push('Tidak ada absen pulang – denda: ' + formatCurrency(incPenalty));
             }
             const onlyOneAbsen = (noArrival && !noDeparture) || (!noArrival && noDeparture);
