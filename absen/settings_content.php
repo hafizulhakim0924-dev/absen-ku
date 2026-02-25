@@ -443,7 +443,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const result = await response.json();
                 showSettingsAlert(result.message, result.success ? 'success' : 'error');
                 if (result.success && result.config) {
-                    if (typeof config !== 'undefined') config = result.config;
+                    if (typeof window.updateConfigFromSettings === 'function') window.updateConfigFromSettings(result.config);
                     if (result.newHoliday) appendRowToHolidayTable(result.newHoliday, result.config);
                     if (typeof refreshResultsFromCurrentData === 'function') refreshResultsFromCurrentData();
                 }
@@ -466,7 +466,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
             showSettingsAlert(result.message, result.success ? 'success' : 'error');
             if (result.success && result.config) {
-                if (typeof config !== 'undefined') config = result.config;
+                if (typeof window.updateConfigFromSettings === 'function') window.updateConfigFromSettings(result.config);
                 if (result.deletedYear != null && result.deletedIndex != null)
                     removeRowFromHolidayTable(result.deletedYear, result.deletedIndex);
                 if (typeof refreshResultsFromCurrentData === 'function') refreshResultsFromCurrentData();

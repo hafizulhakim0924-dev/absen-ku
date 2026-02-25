@@ -1235,16 +1235,22 @@ if ($config) {
             if (!config || !config.holidays) return [];
             const allHolidays = [];
             for (const key in config.holidays) {
-                if (key !== '2025' && config.holidays[key]) {
-                    const holiday = config.holidays[key];
-                    if (holiday.date && holiday.name) allHolidays.push(holiday);
+                const val = config.holidays[key];
+                if (Array.isArray(val)) {
+                    val.forEach(h => { if (h && h.date && h.name) allHolidays.push(h); });
+                } else if (val && val.date && val.name) {
+                    allHolidays.push(val);
                 }
-            }
-            if (config.holidays['2025'] && Array.isArray(config.holidays['2025'])) {
-                allHolidays.push(...config.holidays['2025']);
             }
             return allHolidays;
         }
+
+        /** Dipanggil dari tab Pengaturan setelah tambah/hapus hari libur agar halaman utama pakai config terbaru */
+        window.updateConfigFromSettings = function(newConfig) {
+            if (newConfig && typeof config !== 'undefined') {
+                config = newConfig;
+            }
+        };
 
         function isHoliday(date, month, year, divisionKey) {
             const dateStr = `${year}-${month.toString().padStart(2, '0')}-${date.toString().padStart(2, '0')}`;
