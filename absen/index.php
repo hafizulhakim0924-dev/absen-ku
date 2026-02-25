@@ -164,7 +164,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     usort($config['holidays'][$year], function($a, $b) {
                         return strtotime($a['date']) - strtotime($b['date']);
                     });
-                    $result = ['success' => true, 'message' => 'Hari libur berhasil ditambahkan!'];
+                    $newIndex = count($config['holidays'][$year]) - 1;
+                    $result = [
+                        'success' => true,
+                        'message' => 'Hari libur berhasil ditambahkan!',
+                        'config' => $config,
+                        'newHoliday' => [
+                            'date' => $_POST['holiday_date'],
+                            'name' => $_POST['holiday_name'],
+                            'type' => $_POST['holiday_type'],
+                            'description' => $_POST['holiday_description'] ?? '',
+                            'divisions' => $divisions,
+                            'year' => $year,
+                            'index' => $newIndex
+                        ]
+                    ];
                     break;
                     
                 case 'delete_holiday':
@@ -173,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (isset($config['holidays'][$year][$index])) {
                         unset($config['holidays'][$year][$index]);
                         $config['holidays'][$year] = array_values($config['holidays'][$year]);
-                        $result = ['success' => true, 'message' => 'Hari libur berhasil dihapus!'];
+                        $result = ['success' => true, 'message' => 'Hari libur berhasil dihapus!', 'config' => $config, 'deletedYear' => $year, 'deletedIndex' => $index];
                     }
                     break;
                     
@@ -1722,9 +1736,7 @@ function populateBulkDivisionOptions() {
             document.getElementById('bulkReason').value = '';
             updatePermitList();
             
-            if (processedData) {
-                processAllFiles();
-            }
+            refreshResultsFromCurrentData();
         }
         function closePermitModal() {
             document.getElementById('permitModal').style.display = 'none';
@@ -1786,18 +1798,14 @@ function populateBulkDivisionOptions() {
             document.getElementById('permitReason').value = '';
             updatePermitList();
             
-            if (processedData) {
-                processAllFiles();
-            }
+            refreshResultsFromCurrentData();
         }
 
         function removePermit(permitKey) {
             if (confirm('Hapus data izin ini?')) {
                 delete permitData[permitKey];
                 updatePermitList();
-                if (processedData) {
-                    processAllFiles();
-                }
+                refreshResultsFromCurrentData();
             }
         }
 
@@ -2108,6 +2116,17 @@ function populateBulkDivisionOptions() {
             currentPage = 1;
             displayFilteredResults();
             updateSearchResults();
+        }
+
+        /** Perbarui tabel & total denda dari data yang sudah ada (tanpa loading, tanpa baca ulang file). Dipakai setelah izin/cuti ditambah atau dihapus. */
+        function refreshResultsFromCurrentData() {
+            if (!processedData) return;
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('summary').style.display = 'block';
+            document.getElementById('searchSection').style.display = 'block';
+            document.getElementById('exportSection').style.display = 'block';
+            document.getElementById('results').style.display = 'block';
+            displayCombinedResults(processedData);
         }
 
         function checkDayIncompleteAttendance(categorizedEntries, isWorkingDay, employeeId, date) {

@@ -442,8 +442,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 const result = await response.json();
                 showSettingsAlert(result.message, result.success ? 'success' : 'error');
-                if (result.success) {
-                    setTimeout(() => location.reload(), 1500);
+                if (result.success && result.config) {
+                    if (typeof config !== 'undefined') config = result.config;
+                    if (result.newHoliday) appendRowToHolidayTable(result.newHoliday, result.config);
+                    if (typeof refreshResultsFromCurrentData === 'function') refreshResultsFromCurrentData();
                 }
             } catch (error) {
                 showSettingsAlert('Error: ' + error.message, 'error');
@@ -451,31 +453,62 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Delete holiday forms
-    document.querySelectorAll('form[data-action="delete_holiday"]').forEach(form => {
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            if (!confirm('Yakin ingin menghapus hari libur ini?')) return;
-            
-            const formData = new FormData(this);
-            formData.append('action', 'settings_action');
-            formData.append('settings_action', 'delete_holiday');
-            
-            try {
-                const response = await fetch('', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-                showSettingsAlert(result.message, result.success ? 'success' : 'error');
-                if (result.success) {
-                    setTimeout(() => location.reload(), 1500);
-                }
-            } catch (error) {
-                showSettingsAlert('Error: ' + error.message, 'error');
+    // Delete holiday - event delegation + update tanpa reload
+    document.addEventListener('submit', async function(e) {
+        if (!e.target || e.target.getAttribute('data-action') !== 'delete_holiday') return;
+        e.preventDefault();
+        if (!confirm('Yakin ingin menghapus hari libur ini?')) return;
+        const formData = new FormData(e.target);
+        formData.append('action', 'settings_action');
+        formData.append('settings_action', 'delete_holiday');
+        try {
+            const response = await fetch('', { method: 'POST', body: formData });
+            const result = await response.json();
+            showSettingsAlert(result.message, result.success ? 'success' : 'error');
+            if (result.success && result.config) {
+                if (typeof config !== 'undefined') config = result.config;
+                if (result.deletedYear != null && result.deletedIndex != null)
+                    removeRowFromHolidayTable(result.deletedYear, result.deletedIndex);
+                if (typeof refreshResultsFromCurrentData === 'function') refreshResultsFromCurrentData();
             }
-        });
+        } catch (err) {
+            showSettingsAlert('Error: ' + err.message, 'error');
+        }
     });
+    
+    function appendRowToHolidayTable(h, cfg) {
+        const tbody = document.getElementById('holidays-table-body');
+        if (!tbody) return;
+        const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const d = new Date(h.date + 'T00:00:00');
+        const dayName = dayNames[d.getDay()];
+        let divText = 'Semua divisi';
+        if (h.divisions && h.divisions.length) {
+            const names = (h.divisions || []).map(function(dk) {
+                return (cfg && cfg.division_schedules && cfg.division_schedules[dk]) ? (cfg.division_schedules[dk].name || dk) : dk;
+            });
+            divText = names.join(', ');
+        }
+        const typeClass = h.type === 'national' ? 'national' : 'religious';
+        const typeLabel = h.type === 'national' ? '🇮🇩 Nasional' : '🕌 Keagamaan';
+        const dateFormatted = h.date.split('-').reverse().join('/');
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td><strong>' + dateFormatted + '</strong></td><td>' + dayName + '</td><td>' + (h.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</td><td><span class="holiday-type ' + typeClass + '">' + typeLabel + '</span></td><td>' + (divText || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</td><td>' + (h.description || '-').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</td><td><form data-action="delete_holiday" style="display: inline;"><input type="hidden" name="year" value="' + h.year + '"><input type="hidden" name="index" value="' + h.index + '"><button type="submit" class="settings-btn settings-btn-danger settings-btn-small">🗑️ Hapus</button></form></td>';
+        tbody.appendChild(tr);
+    }
+    function removeRowFromHolidayTable(year, index) {
+        const tbody = document.getElementById('holidays-table-body');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('tr');
+        for (var i = 0; i < rows.length; i++) {
+            var y = rows[i].querySelector('input[name="year"]');
+            var idx = rows[i].querySelector('input[name="index"]');
+            if (y && y.value === String(year) && idx && idx.value === String(index)) {
+                rows[i].remove();
+                return;
+            }
+        }
+    }
     
     // Penalties form
     const penaltiesForm = document.getElementById('penaltiesForm');

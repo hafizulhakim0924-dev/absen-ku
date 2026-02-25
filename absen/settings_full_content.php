@@ -272,7 +272,7 @@ $specialSchedules = $specialSchedules ?? [];
                         <th style="width: 100px;">Aksi</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="holidays-table-body">
                     <?php foreach ($allHolidays as $holiday): ?>
                         <?php
                         $dateObj = new DateTime($holiday['date']);
