@@ -386,6 +386,7 @@ if ($config) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Absensi Karyawan - Multi Mesin Terbaru</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #1976D2; --primary-hover: #1565C0; --bg: #f0f4f8; --card: #fff; --border: #e2e8f0; --text: #1e293b; --text-muted: #64748b; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: var(--bg); font-size: 13px; color: var(--text); }
@@ -579,6 +580,17 @@ if ($config) {
         .libur-izin-section th { background: #f1f5f9; font-weight: 600; }
         .libur-izin-section .empty-msg { color: var(--text-muted); font-style: italic; padding: 6px 0; }
         .libur-izin-footer { padding: 6px 12px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
+        /* Rekap Denda: tabs & chart */
+        .rekap-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        .rekap-tab { padding: 6px 12px; font-size: 11px; border: 1px solid var(--border); background: var(--card); border-radius: 4px; cursor: pointer; }
+        .rekap-tab:hover { background: #f1f5f9; }
+        .rekap-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .rekap-filter-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .rekap-filter-row label { font-size: 12px; font-weight: 600; }
+        .rekap-filter-row select { padding: 5px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; min-width: 180px; }
+        .rekap-chart-wrap { margin-bottom: 16px; padding: 12px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; max-width: 700px; }
+        .rekap-chart-wrap h4 { margin: 0 0 10px 0; font-size: 13px; }
+        .rekap-group-header { background: #f1f5f9; font-weight: 700; font-size: 12px; padding: 8px 10px; border: 1px solid var(--border); }
     </style>
 </head>
 <body>
@@ -616,6 +628,15 @@ if ($config) {
             <p id="rekapNoData" class="alert alert-info" style="display: none;">Proses data di <strong>Halaman Utama</strong> terlebih dahulu (pilih bulan, upload file, lalu Proses Semua File).</p>
             <div id="rekapContent" style="display: none;">
                 <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Urutan: denda terendah → tertinggi. Data sesuai bulan & tahun yang diproses.</p>
+                <div class="rekap-tabs" id="rekapTabs"></div>
+                <div class="rekap-filter-row">
+                    <label for="rekapDivisiFilter">Filter Divisi:</label>
+                    <select id="rekapDivisiFilter" onchange="applyRekapFilter()"></select>
+                </div>
+                <div class="rekap-chart-wrap">
+                    <h4>📈 Grafik Total Denda per Divisi (Keterlambatan & Denda Lain)</h4>
+                    <canvas id="rekapChartCanvas" height="220"></canvas>
+                </div>
                 <div style="margin-bottom: 10px;">
                     <button type="button" class="btn btn-primary" onclick="exportRekapDendaExcel()">📥 Export Excel Rekap Denda</button>
                 </div>
@@ -2374,8 +2395,10 @@ function populateBulkDivisionOptions() {
 
         /** Data rekap denda untuk tabel & export (disimpan saat build). */
         window.rekapDendaRows = [];
+        window.rekapSelectedDivisi = '';
+        window.rekapChartInstance = null;
 
-        /** Bangun tabel Rekap Denda: divisi, orang, tgl kena denda, keterangan, total; urut denda terendah→tertinggi. */
+        /** Bangun tabel Rekap Denda: kelompok per divisi, tab per divisi, filter, grafik batang. */
         function buildRekapDenda() {
             const noDataEl = document.getElementById('rekapNoData');
             const contentEl = document.getElementById('rekapContent');
@@ -2407,8 +2430,11 @@ function populateBulkDivisionOptions() {
                         totalPenalty += st.penaltyAmount;
                     }
                 }
+                const divisiKey = emp.divisi || '';
+                const divisiLabel = getDivisionFullName(divisiKey);
                 rows.push({
-                    divisi: getDivisionFullName(emp.divisi),
+                    divisiKey: divisiKey,
+                    divisi: divisiLabel,
                     id: id,
                     nama: emp.nama || '-',
                     details: details,
@@ -2416,30 +2442,178 @@ function populateBulkDivisionOptions() {
                 });
             });
 
-            rows.sort(function(a, b) { return a.totalPenalty - b.totalPenalty; });
+            rows.sort(function(a, b) {
+                if (a.divisiKey !== b.divisiKey) return (a.divisiKey || '').localeCompare(b.divisiKey || '');
+                return a.totalPenalty - b.totalPenalty;
+            });
             window.rekapDendaRows = rows;
 
-            tbody.innerHTML = '';
-            rows.forEach(function(r, idx) {
-                const tglList = r.details.length ? r.details.map(function(d) { return d.date; }).join(', ') : '-';
-                const ketList = r.details.length ? r.details.map(function(d) { return 'Tgl ' + d.date + ': ' + formatCurrency(d.amount) + ' (' + d.keterangan + ')'; }).join('; ') : '-';
-                const tr = document.createElement('tr');
-                tr.innerHTML = '<td>' + (idx + 1) + '</td><td>' + (r.divisi || '-').replace(/</g, '&lt;') + '</td><td><strong>' + (r.id || '').toString().replace(/</g, '&lt;') + '</strong></td><td>' + (r.nama || '-').replace(/</g, '&lt;') + '</td><td>' + tglList + '</td><td style="font-size: 10px;">' + (ketList || '-').replace(/</g, '&lt;') + '</td><td style="font-weight: bold; color: ' + (r.totalPenalty > 0 ? '#dc2626' : 'inherit') + ';">' + formatCurrency(r.totalPenalty) + '</td>';
-                tbody.appendChild(tr);
+            var divisiKeys = [];
+            var seen = {};
+            rows.forEach(function(r) {
+                if (r.divisiKey && !seen[r.divisiKey]) { seen[r.divisiKey] = true; divisiKeys.push(r.divisiKey); }
+            });
+            divisiKeys.sort();
+
+            var tabsEl = document.getElementById('rekapTabs');
+            if (tabsEl) {
+                tabsEl.innerHTML = '';
+                var tabSemua = document.createElement('button');
+                tabSemua.className = 'rekap-tab active';
+                tabSemua.textContent = 'Semua';
+                tabSemua.setAttribute('data-divisi', '');
+                tabSemua.onclick = function() { setRekapTab(''); };
+                tabsEl.appendChild(tabSemua);
+                divisiKeys.forEach(function(dk) {
+                    var btn = document.createElement('button');
+                    btn.className = 'rekap-tab';
+                    btn.textContent = getDivisionFullName(dk);
+                    btn.setAttribute('data-divisi', dk);
+                    btn.onclick = function() { setRekapTab(dk); };
+                    tabsEl.appendChild(btn);
+                });
+            }
+
+            var filterSelect = document.getElementById('rekapDivisiFilter');
+            if (filterSelect) {
+                filterSelect.innerHTML = '<option value="">Semua Divisi</option>';
+                divisiKeys.forEach(function(dk) {
+                    var opt = document.createElement('option');
+                    opt.value = dk;
+                    opt.textContent = getDivisionFullName(dk);
+                    filterSelect.appendChild(opt);
+                });
+                filterSelect.onchange = applyRekapFilter;
+            }
+
+            window.rekapSelectedDivisi = '';
+            buildRekapChart(rows);
+            renderRekapTable(rows, '');
+        }
+
+        function setRekapTab(divisiKey) {
+            window.rekapSelectedDivisi = divisiKey || '';
+            document.querySelectorAll('.rekap-tab').forEach(function(t) {
+                t.classList.toggle('active', (t.getAttribute('data-divisi') || '') === (divisiKey || ''));
+            });
+            var filterSelect = document.getElementById('rekapDivisiFilter');
+            if (filterSelect) filterSelect.value = divisiKey || '';
+            renderRekapTable(window.rekapDendaRows || [], divisiKey || '');
+        }
+
+        function applyRekapFilter() {
+            var filterSelect = document.getElementById('rekapDivisiFilter');
+            var divisiKey = filterSelect ? filterSelect.value : '';
+            setRekapTab(divisiKey || '');
+        }
+
+        function buildRekapChart(rows) {
+            var byDivisi = {};
+            rows.forEach(function(r) {
+                var key = r.divisiKey || 'Lain';
+                if (!byDivisi[key]) byDivisi[key] = { label: r.divisi || key, total: 0 };
+                byDivisi[key].total += r.totalPenalty;
+            });
+            var labels = [];
+            var data = [];
+            Object.keys(byDivisi).sort().forEach(function(k) {
+                labels.push(byDivisi[k].label);
+                data.push(byDivisi[k].total);
+            });
+            var canvas = document.getElementById('rekapChartCanvas');
+            if (!canvas) return;
+            if (window.rekapChartInstance) {
+                window.rekapChartInstance.destroy();
+                window.rekapChartInstance = null;
+            }
+            var ctx = canvas.getContext('2d');
+            window.rekapChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Denda (Rp)',
+                        data: data,
+                        backgroundColor: 'rgba(25, 118, 210, 0.7)',
+                        borderColor: 'rgb(25, 118, 210)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    var v = ctx.raw;
+                                    return 'Total denda: Rp ' + (typeof v === 'number' ? v.toLocaleString('id-ID') : v);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, title: { display: true, text: 'Divisi' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Total Denda (Rp)' }, ticks: { callback: function(v) { return typeof v === 'number' ? 'Rp ' + v.toLocaleString('id-ID') : v; } } }
+                    }
+                }
             });
         }
 
-        /** Export Rekap Denda ke Excel (detail & ringkas). */
+        function renderRekapTable(rows, divisiFilter) {
+            var tbody = document.getElementById('rekapDendaBody');
+            if (!tbody) return;
+            var filtered = divisiFilter ? rows.filter(function(r) { return r.divisiKey === divisiFilter; }) : rows;
+            filtered.sort(function(a, b) { return a.totalPenalty - b.totalPenalty; });
+            tbody.innerHTML = '';
+            var no = 0;
+            if (divisiFilter) {
+                filtered.forEach(function(r) {
+                    no++;
+                    var tglList = r.details.length ? r.details.map(function(d) { return d.date; }).join(', ') : '-';
+                    var ketList = r.details.length ? r.details.map(function(d) { return 'Tgl ' + d.date + ': ' + formatCurrency(d.amount) + ' (' + d.keterangan + ')'; }).join('; ') : '-';
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = '<td>' + no + '</td><td>' + (r.divisi || '-').replace(/</g, '&lt;') + '</td><td><strong>' + (r.id || '').toString().replace(/</g, '&lt;') + '</strong></td><td>' + (r.nama || '-').replace(/</g, '&lt;') + '</td><td>' + tglList + '</td><td style="font-size: 10px;">' + (ketList || '-').replace(/</g, '&lt;') + '</td><td style="font-weight: bold; color: ' + (r.totalPenalty > 0 ? '#dc2626' : 'inherit') + ';">' + formatCurrency(r.totalPenalty) + '</td>';
+                    tbody.appendChild(tr);
+                });
+            } else {
+                var currentDivisi = null;
+                filtered.forEach(function(r) {
+                    if (r.divisiKey !== currentDivisi) {
+                        currentDivisi = r.divisiKey;
+                        var hr = document.createElement('tr');
+                        hr.className = 'rekap-group-header';
+                        hr.innerHTML = '<td colspan="7">' + (r.divisi || currentDivisi || 'Lain').replace(/</g, '&lt;') + '</td>';
+                        tbody.appendChild(hr);
+                    }
+                    no++;
+                    var tglList = r.details.length ? r.details.map(function(d) { return d.date; }).join(', ') : '-';
+                    var ketList = r.details.length ? r.details.map(function(d) { return 'Tgl ' + d.date + ': ' + formatCurrency(d.amount) + ' (' + d.keterangan + ')'; }).join('; ') : '-';
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = '<td>' + no + '</td><td>' + (r.divisi || '-').replace(/</g, '&lt;') + '</td><td><strong>' + (r.id || '').toString().replace(/</g, '&lt;') + '</strong></td><td>' + (r.nama || '-').replace(/</g, '&lt;') + '</td><td>' + tglList + '</td><td style="font-size: 10px;">' + (ketList || '-').replace(/</g, '&lt;') + '</td><td style="font-weight: bold; color: ' + (r.totalPenalty > 0 ? '#dc2626' : 'inherit') + ';">' + formatCurrency(r.totalPenalty) + '</td>';
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        /** Export Rekap Denda ke Excel (detail & ringkas). Mengikuti filter/tab divisi yang aktif. */
         function exportRekapDendaExcel() {
-            const rows = window.rekapDendaRows;
+            var rows = window.rekapDendaRows;
             if (!rows || rows.length === 0) {
                 alert('Tidak ada data rekap. Buka tab Rekap Denda setelah memproses data.');
                 return;
             }
+            var filter = window.rekapSelectedDivisi || '';
+            var toExport = filter ? rows.filter(function(r) { return r.divisiKey === filter; }) : rows;
+            toExport.sort(function(a, b) {
+                if (a.divisiKey !== b.divisiKey) return (a.divisiKey || '').localeCompare(b.divisiKey || '');
+                return a.totalPenalty - b.totalPenalty;
+            });
             const monthName = selectedMonth && monthNames[selectedMonth] ? monthNames[selectedMonth] : '';
             const year = selectedYear || '';
             const header = ['No', 'Divisi', 'ID', 'Nama', 'Tanggal Kena Denda', 'Keterangan per Tanggal', 'Total Denda'];
-            const data = rows.map(function(r, idx) {
+            const data = toExport.map(function(r, idx) {
                 const tglList = r.details.length ? r.details.map(function(d) { return d.date; }).join(', ') : '-';
                 const ketList = r.details.length ? r.details.map(function(d) { return 'Tgl ' + d.date + ': ' + formatCurrency(d.amount) + ' (' + d.keterangan + ')'; }).join('; ') : '-';
                 return [idx + 1, r.divisi || '', r.id || '', r.nama || '', tglList, ketList, r.totalPenalty];
@@ -2450,7 +2624,8 @@ function populateBulkDivisionOptions() {
             ws['!cols'] = colWidths;
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Rekap Denda');
-            const filename = 'Rekap_Denda_' + (monthName || '') + '_' + year + '_' + Date.now() + '.xlsx';
+            var suffix = filter ? '_' + (filter) : '';
+            const filename = 'Rekap_Denda_' + (monthName || '') + '_' + year + suffix + '_' + Date.now() + '.xlsx';
             XLSX.writeFile(wb, filename);
         }
 
