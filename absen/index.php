@@ -582,9 +582,28 @@ if ($config) {
         .results-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
         .results-table th { background: #f5f5f5; border: 1px solid #ddd; padding: 8px; text-align: left; }
         .results-table td { padding: 6px; border: 1px solid #ddd; vertical-align: top; }
-        .attendance-detail { max-width: 500px; font-size: 11px; max-height: 300px; overflow-y: auto; }
+        .attendance-detail { max-width: 520px; font-size: 11px; }
         .penalty-info { color: red; font-weight: bold; }
         .day-info { margin-bottom: 5px; padding: 3px 5px; background: #f9f9f9; border-left: 2px solid #999; }
+        .cal-wrap { margin-top: 6px; }
+        .cal-header { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin-bottom: 2px; font-size: 9px; font-weight: bold; color: #555; text-align: center; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+        .cal-cell { aspect-ratio: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; border: 1px solid rgba(0,0,0,0.1); }
+        .cal-cell:hover { filter: brightness(1.1); box-shadow: 0 0 0 2px rgba(0,0,0,0.2); }
+        .cal-cell.empty { background: #f0f0f0; cursor: default; border: none; }
+        .cal-cell.hadir { background: #27ae60; color: white; }
+        .cal-cell.alfa { background: #e74c3c; color: white; }
+        .cal-cell.libur { background: #f1c40f; color: #333; }
+        .cal-cell.libur-divisi { background: #f39c12; color: white; }
+        .cal-cell.weekend { background: #95a5a6; color: white; }
+        .cal-cell.izin { background: #3498db; color: white; }
+        .cal-cell.denda { background: #e67e22; color: white; }
+        .cal-cell .cal-num { font-size: 12px; }
+        .cal-cell .cal-penalty { font-size: 8px; color: #fff; background: #c0392b; padding: 0 3px; border-radius: 2px; margin-top: 1px; }
+        .cal-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; font-size: 9px; }
+        .cal-legend span { padding: 2px 6px; border-radius: 3px; }
+        #dayDetailModal .modal-content { max-width: 420px; font-size: 12px; }
+        #dayDetailModal .detail-line { margin: 4px 0; padding: 4px 0; border-bottom: 1px solid #eee; }
         .time-entry { margin-left: 8px; }
         .toggle-btn { background: white; border: 1px solid #999; padding: 3px 6px; cursor: pointer; font-size: 10px; }
         .summary-row { background: #f5f5f5 !important; font-weight: bold; }
@@ -871,6 +890,13 @@ if ($config) {
                 </div>
             </div>
 
+            <div id="dayDetailModal" class="modal" onclick="if(event.target===this) closeDayDetailModal()">
+                <div class="modal-content" onclick="event.stopPropagation()">
+                    <h3>Detail Kehadiran per Tanggal</h3>
+                    <div id="dayDetailModalBody" class="detail-line"></div>
+                    <div style="margin-top: 12px;"><button type="button" onclick="closeDayDetailModal()" style="padding: 6px 12px; border: 1px solid #999; background: #f5f5f5; cursor: pointer;">Tutup</button></div>
+                </div>
+            </div>
             <div id="savedFilesModal" class="modal">
                 <div class="modal-content">
                     <h3>Data Tersimpan di Server</h3>
@@ -1291,6 +1317,105 @@ if ($config) {
             if (dayInfo.isWeekend) return 'Weekend';
             return 'Tidak masuk jadwal kerja';
         }
+
+        /** Untuk kalender: status per tanggal (hadir_ok, alfa, libur, libur_divisi, weekend, izin, denda) + detail HTML. */
+        function getDayStatusForCalendar(empId, date, month, year, divisionKey, attendanceByDate) {
+            const dayInfo = getDayInfo(date, month, year, divisionKey);
+            const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            const dayName = dayNames[new Date(year, month - 1, date).getDay()];
+            const permitKey = `${empId}-${date}`;
+            const fullPermit = permitData[permitKey] && permitData[permitKey].type === 'full' && permitData[permitKey].month === month && permitData[permitKey].year === year;
+
+            let detailLines = [`<strong>${date} ${monthNames[month]} ${year} (${dayName})</strong>`];
+
+            if (!dayInfo.isWorkingDay) {
+                if (dayInfo.holiday) {
+                    const divs = dayInfo.holiday.divisions;
+                    const isDivisiOnly = divs && divs.length > 0;
+                    const label = isDivisiOnly ? 'Libur (divisi ini)' : 'Libur';
+                    const reason = dayInfo.holiday.name || 'Hari libur';
+                    detailLines.push(`Tidak dihitung: ${reason}`);
+                    return { status: isDivisiOnly ? 'libur-divisi' : 'libur', label, detailHtml: detailLines.join('<br>'), penaltyAmount: 0 };
+                }
+                if (dayInfo.specialEvent) {
+                    detailLines.push('Event: ' + (dayInfo.specialEvent.name || ''));
+                    return { status: 'libur', label: 'Event', detailHtml: detailLines.join('<br>'), penaltyAmount: 0 };
+                }
+                if (dayInfo.isWeekend) {
+                    detailLines.push('Weekend – tidak dihitung.');
+                    return { status: 'weekend', label: 'Weekend', detailHtml: detailLines.join('<br>'), penaltyAmount: 0 };
+                }
+            }
+
+            if (fullPermit) {
+                const reason = (permitData[permitKey] && permitData[permitKey].reason) || 'Izin';
+                detailLines.push(`Izin/Sakit/Cuti: ${reason}`);
+                return { status: 'izin', label: 'Izin', detailHtml: detailLines.join('<br>'), penaltyAmount: 0 };
+            }
+
+            const dayAttendance = attendanceByDate[date] || [];
+            if (dayInfo.isWorkingDay && dayAttendance.length === 0) {
+                detailLines.push('Alfa – tidak hadir (hari kerja).');
+                const alfaPenalty = (typeof getIncompleteAttendancePenalty === 'function' ? getIncompleteAttendancePenalty() : 15000);
+                return { status: 'alfa', label: 'Alfa', detailHtml: detailLines.join('<br>'), penaltyAmount: alfaPenalty };
+            }
+
+            const categorized = categorizeAttendanceEntries(dayAttendance, divisionKey, date, month, year, empId);
+            const hasIncomplete = checkDayIncompleteAttendance(categorized, dayInfo.isWorkingDay, empId, date);
+            let dayPenalty = 0;
+            const parts = [];
+            categorized.forEach(entry => {
+                const countPenalty = !(hasIncomplete && entry.penaltyAmount > 0 && !entry.permitInfo);
+                if (entry.type === 'arrival') {
+                    parts.push('Datang: ' + (entry.formattedTime || entry.time));
+                    if (entry.penaltyAmount) {
+                        if (countPenalty) dayPenalty += entry.penaltyAmount;
+                        if (entry.penaltyInfo) parts.push('Terlambat: ' + entry.penaltyInfo);
+                    }
+                    if (entry.permitInfo) parts.push(entry.permitInfo);
+                } else {
+                    parts.push('Pulang: ' + (entry.formattedTime || entry.time));
+                    if (entry.penaltyAmount) {
+                        if (countPenalty) dayPenalty += entry.penaltyAmount;
+                        if (entry.penaltyInfo) parts.push('Pulang awal: ' + entry.penaltyInfo);
+                    }
+                    if (entry.permitInfo) parts.push(entry.permitInfo);
+                }
+            });
+            const noArrival = dayInfo.isWorkingDay && !categorized.some(e => e.type === 'arrival') && !getPermitForEmployee(empId, date, 'arrival');
+            const noDeparture = dayInfo.isWorkingDay && !categorized.some(e => e.type === 'departure') && !getPermitForEmployee(empId, date, 'departure');
+            const incPenalty = typeof getIncompleteAttendancePenalty === 'function' ? getIncompleteAttendancePenalty() : 15000;
+            if (noArrival) {
+                if (!hasIncomplete) dayPenalty += incPenalty;
+                parts.push('Tidak ada absen datang – denda: ' + formatCurrency(incPenalty));
+            }
+            if (noDeparture) {
+                if (!hasIncomplete) dayPenalty += incPenalty;
+                parts.push('Tidak ada absen pulang – denda: ' + formatCurrency(incPenalty));
+            }
+            detailLines.push(parts.join('<br>'));
+            if (dayPenalty > 0) detailLines.push('<span style="color:red;font-weight:bold;">Total denda: ' + formatCurrency(dayPenalty) + '</span>');
+
+            const status = dayPenalty > 0 ? 'denda' : 'hadir';
+            const label = dayPenalty > 0 ? 'Ada denda' : 'Hadir';
+            return { status, label, detailHtml: detailLines.join('<br>'), penaltyAmount: dayPenalty };
+        }
+
+        /** Tampilkan modal detail tanggal (dipanggil saat klik sel kalender). */
+        window.showDayDetail = function(empId, date) {
+            const store = window.employeeDayDetails && window.employeeDayDetails[empId];
+            if (!store || !store[date]) return;
+            const modal = document.getElementById('dayDetailModal');
+            const body = document.getElementById('dayDetailModalBody');
+            if (modal && body) {
+                body.innerHTML = store[date];
+                modal.style.display = 'block';
+            }
+        };
+        window.closeDayDetailModal = function() {
+            const modal = document.getElementById('dayDetailModal');
+            if (modal) modal.style.display = 'none';
+        };
 
         function getIncompleteAttendancePenalty() {
             if (config && config.absence_policy && config.absence_policy.incomplete_attendance_penalty) {
@@ -1973,161 +2098,63 @@ function populateBulkDivisionOptions() {
                 const completenessInfo = checkAttendanceCompleteness(attendanceByDate, employee.divisi, selectedMonth, selectedYear, id);
                 const sortedDates = Object.keys(attendanceByDate).sort((a, b) => parseInt(a) - parseInt(b));
                 
-                let totalEmployeePenalties = 0;
                 let attendanceDetail = '';
-                totalEmployeePenalties += completenessInfo.incompletePenalty + completenessInfo.absentPenalty;
+                window.employeeDayDetails = window.employeeDayDetails || {};
+                const divisionSchedule = getDivisionSchedule(employee.divisi);
+                let scheduleDisplay = `<div style="font-size: 11px; color: #666; margin-bottom: 6px; padding: 4px 8px; background: #e8f4fd;">Jadwal: ${divisionSchedule.start_time} - ${divisionSchedule.end_time}`;
+                if (config && config.division_schedules && config.division_schedules[employee.divisi] && config.division_schedules[employee.divisi].friday_schedule) {
+                    const fs = config.division_schedules[employee.divisi].friday_schedule;
+                    scheduleDisplay += ` | Jumat: ${fs.start_time} - ${fs.end_time}`;
+                }
+                scheduleDisplay += `</div>`;
                 
-                if (sortedDates.length === 0 && completenessInfo.absentWorkingDays.length === 0) {
-                    attendanceDetail = '<div class="day-info">Tidak ada data kehadiran</div>';
-                } else {
-                    const divisionSchedule = getDivisionSchedule(employee.divisi);
-                    let scheduleDisplay = `<div style="font-size: 11px; color: #666; margin-bottom: 8px; padding: 4px 8px; background: #e8f4fd;">Jadwal: ${divisionSchedule.start_time} - ${divisionSchedule.end_time}`;
-                    if (config && config.division_schedules && config.division_schedules[employee.divisi] && config.division_schedules[employee.divisi].friday_schedule) {
-                        const fridaySchedule = config.division_schedules[employee.divisi].friday_schedule;
-                        scheduleDisplay += ` | Jumat: ${fridaySchedule.start_time} - ${fridaySchedule.end_time}`;
-                    }
-                    scheduleDisplay += `</div>`;
-                    
-                    let attendancePreview = '';
-                    let attendanceFull = '';
-                    const previewLimit = 7;
-                    
-                    for (let i = 0; i < sortedDates.length; i++) {
-                        const tanggal = sortedDates[i];
-                        const dayInfo = attendanceByDate[tanggal][0].dayInfo;
-                        let dayContent = `<div class="day-info"><strong>${tanggal} ${monthNames[selectedMonth]} (${dayInfo.dayName})</strong></div>`;
-                        const categorizedEntries = categorizeAttendanceEntries(attendanceByDate[tanggal], employee.divisi, parseInt(tanggal), selectedMonth, selectedYear, id);
-                        
-                        const hasIncompleteAttendancePenalty = checkDayIncompleteAttendance(categorizedEntries, dayInfo.isWorkingDay, id, parseInt(tanggal));
-                        
-                        if (dayInfo.isWorkingDay) {
-                            const arrivalPermit = getPermitForEmployee(id, parseInt(tanggal), 'arrival');
-                            const departurePermit = getPermitForEmployee(id, parseInt(tanggal), 'departure');
-                            const hasArrival = categorizedEntries.some(entry => entry.type === 'arrival');
-                            const hasDeparture = categorizedEntries.some(entry => entry.type === 'departure');
-                            
-                            if (!arrivalPermit && !hasArrival) {
-                                dayContent += `<div class="time-entry" style="color: #e67e22;">Tidak Ada Absen Datang - Denda: ${formatCurrency(getIncompleteAttendancePenalty())}</div>`;
-                            }
-                            if (!departurePermit && !hasDeparture) {
-                                dayContent += `<div class="time-entry" style="color: #e67e22;">Tidak Ada Absen Pulang - Denda: ${formatCurrency(getIncompleteAttendancePenalty())}</div>`;
-                            }
-                        }
-                        
-                        for (const entry of categorizedEntries) {
-                            const machineInfo = `Mesin ${entry.machine}`;
-                            const typeIcon = entry.type === 'arrival' ? '→' : '←';
-                            
-                            let penaltyDisplay = entry.penaltyInfo;
-                            let actualPenalty = entry.penaltyAmount;
-                            
-                            if (hasIncompleteAttendancePenalty && entry.penaltyAmount > 0 && !entry.permitInfo) {
-                                penaltyDisplay = `<span class="waived-penalty">${entry.penaltyInfo}</span> <span style="color: #27ae60; font-size: 10px;">(Dibatalkan karena kehadiran tidak lengkap)</span>`;
-                                actualPenalty = 0;
-                            }
-                            
-                            dayContent += `<div class="time-entry">${typeIcon} ${entry.label}: <strong>${entry.formattedTime}</strong> (${entry.column}) - ${machineInfo} ${entry.scheduleInfo} ${entry.exceptionInfo}`;
-                            if (entry.permitInfo) {
-                                dayContent += `<span style="color: #0984e3; font-weight: bold;">${entry.permitInfo}</span>`;
-                            }
-                            if (penaltyDisplay) {
-                                dayContent += `<span class="penalty-info">${penaltyDisplay}</span>`;
-                            }
-                            dayContent += `</div>`;
-                            
-                            if (i < previewLimit) {
-                                totalEmployeePenalties += actualPenalty;
-                            }
-                        }
-                        
-                        if (i < previewLimit) {
-                            attendancePreview += dayContent;
-                        }
-                        attendanceFull += dayContent;
-                        if (i >= previewLimit) {
-                            categorizedEntries.forEach(entry => {
-                                let actualPenalty = entry.penaltyAmount;
-                                if (hasIncompleteAttendancePenalty && entry.penaltyAmount > 0 && !entry.permitInfo) {
-                                    actualPenalty = 0;
-                                }
-                                totalEmployeePenalties += actualPenalty;
-                            });
-                        }
-                    }
-                    
-                    if (completenessInfo.absentWorkingDays.length > 0) {
-                        const absentDaysText = completenessInfo.absentWorkingDays.map(d => {
-                            const permitKey = `${id}-${d}`;
-                            if (permitData[permitKey] && permitData[permitKey].type === 'full') {
-                                return `${d} (${getPermitTypeName(permitData[permitKey].type)}: ${permitData[permitKey].reason})`;
-                            }
-                            return d.toString();
-                        }).join(', ');
-                        const absentInfo = `<div class="day-info" style="background: #ffeaa7; border-left-color: #fdcb6e;">Hari Kerja Tidak Hadir: ${absentDaysText}${completenessInfo.absentPenalty > 0 ? ` - Denda: ${formatCurrency(completenessInfo.absentPenalty)}` : ''}</div>`;
-                        attendancePreview += absentInfo;
-                        attendanceFull += absentInfo;
-                    }
-                    
-                    const permitDays = [];
-                    for (let date = 1; date <= new Date(selectedYear, selectedMonth, 0).getDate(); date++) {
-                        const permitKey = `${id}-${date}`;
-                        if (permitData[permitKey] && permitData[permitKey].type === 'full') {
-                            const dayInfo = getDayInfo(date, selectedMonth, selectedYear, getDivisionById(id));
-                            if (dayInfo.isWorkingDay && !attendanceByDate[date]) {
-                                permitDays.push({ date, reason: permitData[permitKey].reason, type: permitData[permitKey].type });
-                            }
-                        }
-                    }
-                    
-                    if (permitDays.length > 0) {
-                        const permitInfo = permitDays.map(p => `${p.date} (${p.reason})`).join(', ');
-                        const permitDisplay = `<div class="day-info" style="background: #dfe6e9; border-left-color: #74b9ff;">Hari Izin Penuh: ${permitInfo}</div>`;
-                        attendancePreview += permitDisplay;
-                        attendanceFull += permitDisplay;
-                    }
-                    
-                    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
-                    const notCountedLines = [];
+                const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+                const dayDetailsStore = {};
+                let totalEmployeePenalties = 0;
                     for (let d = 1; d <= daysInMonth; d++) {
-                        const reason = getReasonDateNotCounted(d, selectedMonth, selectedYear, employee.divisi);
-                        if (reason) notCountedLines.push({ date: d, reason: reason });
+                        const st = getDayStatusForCalendar(id, d, selectedMonth, selectedYear, employee.divisi, attendanceByDate);
+                        dayDetailsStore[d] = st.detailHtml;
+                        totalEmployeePenalties += st.penaltyAmount || 0;
                     }
-                    if (notCountedLines.length > 0) {
-                        const notCountedHtml = notCountedLines.map(n => `Ket: tgl ${n.date} tidak dihitung karena: ${n.reason}`).join('<br>');
-                        const notCountedBlock = `<div class="day-info" style="background: #f5f5f5; border-left-color: #95a5a6; margin-top: 8px; font-size: 11px;"><strong>Tanggal tidak dihitung:</strong><br>${notCountedHtml}</div>`;
-                        attendancePreview += notCountedBlock;
-                        attendanceFull += notCountedBlock;
+                    window.employeeDayDetails[id] = dayDetailsStore;
+                    
+                    const firstDayOfWeek = new Date(selectedYear, selectedMonth - 1, 1).getDay();
+                    let calHtml = '<div class="cal-wrap"><div class="cal-header"><span>Min</span><span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span></div><div class="cal-grid">';
+                    for (let i = 0; i < firstDayOfWeek; i++) calHtml += '<div class="cal-cell empty"></div>';
+                    for (let d = 1; d <= daysInMonth; d++) {
+                        const st = getDayStatusForCalendar(id, d, selectedMonth, selectedYear, employee.divisi, attendanceByDate);
+                        const penaltyTip = st.penaltyAmount > 0 ? `<span class="cal-penalty">${formatCurrency(st.penaltyAmount)}</span>` : '';
+                        calHtml += `<div class="cal-cell ${st.status}" onclick="showDayDetail('${id}', ${d})" title="Klik untuk detail">`;
+                        calHtml += `<span class="cal-num">${d}</span>${penaltyTip}</div>`;
                     }
+                    const totalCells = firstDayOfWeek + daysInMonth;
+                    const remainder = totalCells % 7;
+                    if (remainder !== 0) {
+                        for (let i = 0; i < 7 - remainder; i++) calHtml += '<div class="cal-cell empty"></div>';
+                    }
+                    calHtml += '</div>';
+                    calHtml += `<div class="cal-legend">
+                        <span style="background:#27ae60;color:white;">Hadir</span>
+                        <span style="background:#e74c3c;color:white;">Alfa</span>
+                        <span style="background:#f1c40f;color:#333;">Libur</span>
+                        <span style="background:#f39c12;color:white;">Libur divisi</span>
+                        <span style="background:#95a5a6;color:white;">Weekend</span>
+                        <span style="background:#3498db;color:white;">Izin/Sakit/Cuti</span>
+                        <span style="background:#e67e22;color:white;">Denda</span>
+                    </div></div>`;
                     
                     let penaltySummary = '';
                     if (totalEmployeePenalties > 0) {
-                        let penaltyBreakdown = [];
-                        if (completenessInfo.incompletePenalty > 0) {
-                            penaltyBreakdown.push(`Kehadiran Tidak Lengkap: ${formatCurrency(completenessInfo.incompletePenalty)}`);
-                        }
-                        if (completenessInfo.absentPenalty > 0) {
-                            penaltyBreakdown.push(`Tidak Hadir: ${formatCurrency(completenessInfo.absentPenalty)}`);
-                        }
-                        penaltySummary = `<div style="background: #fadbd8; padding: 8px; margin-top: 8px; border-left: 4px solid red;">
-                            <div style="font-weight: bold; color: red;">Total Denda: ${formatCurrency(totalEmployeePenalties)}</div>
-                            ${penaltyBreakdown.length > 0 ? `<div style="font-size: 11px; margin-top: 4px;">${penaltyBreakdown.join(' | ')}</div>` : ''}
+                        penaltySummary = `<div style="background: #fadbd8; padding: 6px 8px; margin-top: 8px; border-left: 4px solid red; font-size: 11px;">
+                            <strong style="color: red;">Total Denda: ${formatCurrency(totalEmployeePenalties)}</strong>
                         </div>`;
                     }
-                    
-                    const detailId = `detail_${originalEmployeesArray.length}`;
                     attendanceDetail = `
                         ${scheduleDisplay}
-                        <div style="font-weight: bold; margin-bottom: 8px;">
-                            ${daysPresent} hari hadir di ${monthNames[selectedMonth]}
-                            ${sortedDates.length > previewLimit ? `<button class="toggle-btn" onclick="toggleDetail('${detailId}', this)">Lihat Semua</button>` : ''}
-                        </div>
-                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 8px; background: #fdfdfd;">
-                            ${sortedDates.length > previewLimit ? attendancePreview : attendanceFull}
-                            ${sortedDates.length > previewLimit ? `<div id="${detailId}" style="display:none;">${attendanceFull}</div>` : ''}
-                        </div>
+                        <div style="font-weight: bold; margin-bottom: 4px;">${daysPresent} hari hadir · Klik tanggal untuk detail</div>
+                        ${calHtml}
                         ${penaltySummary}
                     `;
-                }
                 
                 grandTotalPenalties += totalEmployeePenalties;
                 originalEmployeesArray.push({
