@@ -506,6 +506,7 @@ if ($config) {
         .cal-cell.weekend { background: #94a3b8; color: white; }
         .cal-cell.izin { background: var(--primary); color: white; }
         .cal-cell.denda { background: #c2410c; color: white; }
+        .cal-cell.denda-incomplete { background: linear-gradient(to right, #16a34a 50%, #dc2626 50%); color: white; }
         .cal-cell .cal-num { font-size: 10px; }
         .cal-cell .cal-penalty { font-size: 7px; color: #fff; background: #b91c1c; padding: 0 2px; border-radius: 2px; margin-top: 0; }
         .cal-legend { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; font-size: 8px; }
@@ -1488,11 +1489,15 @@ if ($config) {
                 if (!hasIncomplete) dayPenalty += incPenalty;
                 parts.push('Tidak ada absen pulang – denda: ' + formatCurrency(incPenalty));
             }
+            const onlyOneAbsen = (noArrival && !noDeparture) || (!noArrival && noDeparture);
             detailLines.push(parts.join('<br>'));
+            if (dayPenalty > 0 && onlyOneAbsen) {
+                detailLines.push('<span style="color:#b91c1c;font-weight:bold;">⚠ Absen tidak lengkap (hanya datang saja atau hanya pulang saja) – kena denda.</span>');
+            }
             if (dayPenalty > 0) detailLines.push('<span style="color:red;font-weight:bold;">Total denda: ' + formatCurrency(dayPenalty) + '</span>');
 
-            const status = dayPenalty > 0 ? 'denda' : 'hadir';
-            const label = dayPenalty > 0 ? 'Ada denda' : 'Hadir';
+            const status = dayPenalty > 0 ? (onlyOneAbsen ? 'denda-incomplete' : 'denda') : 'hadir';
+            const label = dayPenalty > 0 ? (onlyOneAbsen ? 'Denda (absen tidak lengkap)' : 'Ada denda') : 'Hadir';
             return { status, label, detailHtml: detailLines.join('<br>'), penaltyAmount: dayPenalty };
         }
 
@@ -2302,6 +2307,7 @@ function populateBulkDivisionOptions() {
                         <span style="background:#95a5a6;color:white;">Weekend</span>
                         <span style="background:#3498db;color:white;">Izin/Sakit/Cuti</span>
                         <span style="background:#e67e22;color:white;">Denda</span>
+                        <span style="background:linear-gradient(to right, #16a34a 50%, #dc2626 50%);color:white;">Denda (hanya 1x absen)</span>
                     </div></div>`;
                     
                     let penaltySummary = '';
