@@ -894,6 +894,29 @@ if ($config) {
                 <div class="modal-content" onclick="event.stopPropagation()">
                     <h3>Detail Kehadiran per Tanggal</h3>
                     <div id="dayDetailModalBody" class="detail-line"></div>
+                    <div id="dayDetailPermitSection" style="margin-top: 14px; padding-top: 14px; border-top: 1px solid #eee; display: none;">
+                        <h4 style="margin: 0 0 10px 0;">📝 Kelola Izin (untuk ID &amp; tanggal ini)</h4>
+                        <div id="dayDetailPermitCurrent" style="display: none; margin-bottom: 10px; padding: 8px; background: #e8f4fd; border-radius: 4px; font-size: 12px;"></div>
+                        <div id="dayDetailPermitForm">
+                            <div style="margin-bottom: 8px;">
+                                <label style="font-size: 11px;">Jenis Izin:</label>
+                                <select id="dayDetailPermitType" style="width: 100%; padding: 6px; border: 1px solid #999;">
+                                    <option value="full">Izin Penuh (Sakit/Cuti/dll)</option>
+                                    <option value="arrival">Izin Kedatangan Saja</option>
+                                    <option value="departure">Izin Kepulangan Saja</option>
+                                </select>
+                            </div>
+                            <div style="margin-bottom: 10px;">
+                                <label style="font-size: 11px;">Keterangan:</label>
+                                <input type="text" id="dayDetailPermitReason" placeholder="Sakit, Cuti, Keperluan, dll" style="width: 100%; padding: 6px; border: 1px solid #999;">
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" id="dayDetailPermitSaveBtn" onclick="saveDayDetailPermit()" style="padding: 8px 14px; background: #27ae60; color: white; border: none; cursor: pointer;">Simpan Izin</button>
+                                <button type="button" id="dayDetailPermitRemoveBtn" onclick="removeDayDetailPermit()" style="padding: 8px 14px; background: #e74c3c; color: white; border: none; cursor: pointer; display: none;">Hapus Izin</button>
+                                <button type="button" onclick="closeDayDetailModal()" style="padding: 8px 14px; border: 1px solid #999; background: #f5f5f5; cursor: pointer;">Tutup</button>
+                            </div>
+                        </div>
+                    </div>
                     <div style="margin-top: 12px;"><button type="button" onclick="closeDayDetailModal()" style="padding: 6px 12px; border: 1px solid #999; background: #f5f5f5; cursor: pointer;">Tutup</button></div>
                 </div>
             </div>
@@ -1407,15 +1430,79 @@ if ($config) {
             if (!store || !store[date]) return;
             const modal = document.getElementById('dayDetailModal');
             const body = document.getElementById('dayDetailModalBody');
-            if (modal && body) {
-                body.innerHTML = store[date];
-                modal.style.display = 'block';
+            const section = document.getElementById('dayDetailPermitSection');
+            const formDiv = document.getElementById('dayDetailPermitForm');
+            const currentDiv = document.getElementById('dayDetailPermitCurrent');
+            const saveBtn = document.getElementById('dayDetailPermitSaveBtn');
+            const removeBtn = document.getElementById('dayDetailPermitRemoveBtn');
+            if (!modal || !body) return;
+            body.innerHTML = store[date];
+            modal.setAttribute('data-day-emp-id', empId);
+            modal.setAttribute('data-day-date', String(date));
+            if (section) {
+                section.style.display = 'block';
+                const permitKey = empId + '-' + date;
+                const permit = permitData[permitKey];
+                if (permit && permit.month === selectedMonth && permit.year === selectedYear) {
+                    currentDiv.style.display = 'block';
+                    currentDiv.innerHTML = 'Sudah ada izin: <strong>' + (getPermitTypeName ? getPermitTypeName(permit.type) : permit.type) + '</strong> – ' + (permit.reason || '-');
+                    formDiv.style.display = 'none';
+                    if (removeBtn) removeBtn.style.display = 'inline-block';
+                } else {
+                    currentDiv.style.display = 'none';
+                    formDiv.style.display = 'block';
+                    document.getElementById('dayDetailPermitType').value = 'full';
+                    document.getElementById('dayDetailPermitReason').value = '';
+                    if (removeBtn) removeBtn.style.display = 'none';
+                }
             }
+            modal.style.display = 'block';
         };
         window.closeDayDetailModal = function() {
             const modal = document.getElementById('dayDetailModal');
             if (modal) modal.style.display = 'none';
         };
+        function saveDayDetailPermit() {
+            const modal = document.getElementById('dayDetailModal');
+            if (!modal) return;
+            const empId = modal.getAttribute('data-day-emp-id');
+            const date = parseInt(modal.getAttribute('data-day-date'), 10);
+            if (!empId || !date) return;
+            const type = document.getElementById('dayDetailPermitType').value;
+            const reason = (document.getElementById('dayDetailPermitReason').value || '').trim() || 'Izin';
+            const key = empId + '-' + date;
+            permitData[key] = { id: empId, date: date, type: type, reason: reason, month: selectedMonth, year: selectedYear };
+            if (typeof updatePermitList === 'function') updatePermitList();
+            refreshResultsFromCurrentData();
+            if (window.employeeDayDetails && window.employeeDayDetails[empId] && window.employeeDayDetails[empId][date]) {
+                document.getElementById('dayDetailModalBody').innerHTML = window.employeeDayDetails[empId][date];
+            }
+            document.getElementById('dayDetailPermitCurrent').style.display = 'block';
+            document.getElementById('dayDetailPermitCurrent').innerHTML = 'Izin tersimpan: <strong>' + (getPermitTypeName ? getPermitTypeName(type) : type) + '</strong> – ' + reason;
+            document.getElementById('dayDetailPermitForm').style.display = 'none';
+            document.getElementById('dayDetailPermitRemoveBtn').style.display = 'inline-block';
+            if (typeof showNotification === 'function') showNotification('Izin berhasil disimpan. Kalender diperbarui.', 'success');
+        }
+        function removeDayDetailPermit() {
+            const modal = document.getElementById('dayDetailModal');
+            if (!modal) return;
+            const empId = modal.getAttribute('data-day-emp-id');
+            const date = parseInt(modal.getAttribute('data-day-date'), 10);
+            if (!empId || !date) return;
+            const key = empId + '-' + date;
+            delete permitData[key];
+            if (typeof updatePermitList === 'function') updatePermitList();
+            refreshResultsFromCurrentData();
+            if (window.employeeDayDetails && window.employeeDayDetails[empId] && window.employeeDayDetails[empId][date]) {
+                document.getElementById('dayDetailModalBody').innerHTML = window.employeeDayDetails[empId][date];
+            }
+            document.getElementById('dayDetailPermitCurrent').style.display = 'none';
+            document.getElementById('dayDetailPermitForm').style.display = 'block';
+            document.getElementById('dayDetailPermitType').value = 'full';
+            document.getElementById('dayDetailPermitReason').value = '';
+            document.getElementById('dayDetailPermitRemoveBtn').style.display = 'none';
+            if (typeof showNotification === 'function') showNotification('Izin dihapus. Kalender diperbarui.', 'success');
+        }
 
         function getIncompleteAttendancePenalty() {
             if (config && config.absence_policy && config.absence_policy.incomplete_attendance_penalty) {
